@@ -1,0 +1,35 @@
+      SUBROUTINE RGRID
+      IMPLICIT REAL*8(A-H,O-Z),INTEGER(I-K,M-N),LOGICAL(L)
+         INCLUDE 'compar.f'
+C
+      STEU1=STEU1+1.D0
+      STEU2=STEU2+1.D0
+      STEU3=STEU3+1.D0
+C
+      RMAX=0.D0
+      DO 1000 J=1,NCOMP
+ 1000 IF(RTOT(J).GT.RMAX)RMAX=RTOT(J)
+C
+      R(NJ)=RMAX
+          NN=3
+ 1    DO 2 I=NJ,NN,-1
+      IM=I-1
+      IF(DBLE(I)/5.D1.GT.5.D0)THEN
+      XE1=0.D0
+      ELSE
+      XE1=DEXP(-(DBLE(I)/5.D1)**2)
+      END IF
+      IF(DBLE(I)/1.D2.GT.5.D0)THEN
+      XE2=0.D0
+      ELSE
+      XE2=DEXP(-(DBLE(I)/1.D2)**2)
+      END IF
+      STEU=STEU1*(1.D0-XE2)+XE2*(STEU2*(1.D0-XE1)+STEU3*XE1)
+      R(IM)=R(I)/STEU
+ 2    CONTINUE
+      R(1)=0.D0
+      WRITE(6,100)R(3),STEU1,STEU2,STEU3
+ 100  FORMAT(1X,' R(3)=',1P,D9.2,' STEU1-3=',3D9.2)
+*
+      RETURN
+      END
