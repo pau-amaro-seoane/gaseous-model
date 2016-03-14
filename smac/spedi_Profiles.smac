@@ -1,0 +1,2089 @@
+#| macros :
+#| --------
+#|   init_RhoProfiles make_RhoProfile read_RhoProfile plot_RhoProfile
+#|   CreateSequenceOfRhoProfiles get_spedi_MF make_ProjRhoProfile
+#|   project_RhoProfile plot_ProjRhoProfile init_SigmaProfiles
+#|   make_SigmaProfile read_SigmaProfile plot_SigmaProfile
+#|   make_TempProfile read_TempProfile plot_TempProfile
+#|   CreateSequenceOfTempProfiles project_SigmaProfile
+#|   make_ProjSigmaProfile plot_ProjSigmaProfile
+#|   put_profile_time_label_ put_profile_mf_legend_
+#|
+
+	
+init_RhoProfiles # star1.list file must be in workin' directory, man!
+		delete Nfiles
+		get_spedi_units
+		get_spedi_MF
+		get_spedi_MBH
+		# create rho_profileXXX.asc files
+		! ls -1 *.asc | grep -q '^rho_profile[0-9][0-9]*\\.asc\\$' >/dev/null 2>&1
+		if ($exit_status==0) {
+		   echo "!!! Fait chier, y'a deja des p'tain de fichiers rho_profileXXX.asc, con !!!"
+		   #return
+		} else {
+		   define perl_script "$HOME/GAS_MODEL/util/ExtractDensityProfilesFromListFile.pl"
+		   ! [[ -f $perl_script ]]
+		   if ($exit_status!=0) { define perl_script ExtractDensityProfilesFromListFile.pl }
+		   !gunzip --force --to-stdout star1.list(|.gz) | $perl_script
+		}
+		! ls -1 rho_profile*.asc | sed 's/rho_profile//; s/.asc//' | sort -nr | head -n1 > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Nfiles 1 }
+		define Nfiles $(Nfiles)
+		! rm _TMP$!pid_script_sm""_
+		echo "> Felicitations, vous avez cree $!(Nfiles) fichiers !"
+
+# make_RhoProfile : plot density of cluster
+#                       use:
+#		        - Put star1.list file in current directory (or a link). And erase rho_profile*.asc files if necessary.
+#                       - In sm: use "init_RhoProfiles" to compute all the density profiles (one for each snapshot)
+#                         !!! Warning: rho_profile*.asc files have to be deleted "by hand" when one starts with another run (other star1.list file)
+#                       - In sm: use "make_RhoProfile n" to plot density profile for snapshot n
+#                       options:
+#                       - if OUTSIDE_MF_LEGEND defined ("def OUTSIDE_MF_LEGEND"), put the legend for the mass spectrum outside of the diagram
+#                       - if PLOT_MAVRG is defined, also plot the averaged stellar mass vs Radius (in a second panel)
+#                       - if FIGER_LIMITES is defined, keep the diagram limits as previously defined
+#                       - if T_RH set a value, indicate time in units of initial half-mass relaxation time ("define T_RH 0.093" for Plummer), FP time units are used otherwise
+		
+make_RhoProfile 1 # $1: number of rho_profileXXX.asc file to plot ($1=XXX)
+		read_RhoProfile $1
+		plot_RhoProfile
+
+read_RhoProfile 1 # $1: number of rho_profileXXX.asc file to plot ($1=XXX)
+
+                # read data from file
+		if ($?R_max==0) {
+		   define R_max_ 1e30
+		} else {
+		   define R_max_ $R_max
+		}
+		if ($?R_min==0) {
+		   define R_min_ 0
+		} else {
+		   define R_min_ $R_min
+		}
+		define iFile $1
+		if ($iFile>Nfiles) {
+		   echo "!!! Y'a que $!(Nfiles) fichiers, grand fou !!!"
+		   return
+		}
+		lit_fort rho_profile""$iFile"".asc
+		
+		# Below, we read the following data : Nstar gamma_Coulomb Time Ncomp
+		!cat rho_profile""$iFile"".asc | grep '^\#.*=' | sed 's/Number of mass components/Ncomp/; s/ *= */ /; s/^\# *//' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { _Names_ 1.s _values_ 2 }
+		do i=0,dimen(_Names_)-1 {
+		   define $(_Names_[$i]) $(_values_[$i])
+		   set $(_Names_[$i])=$(_values_[$i])
+		   echo Variable $(_Names_[$i]) set to $$(_Names_[$i])
+		}
+		
+		# define the current BH mass
+		set Time=$Time
+		if (is_vector(MBH) && dimen(MBH)>1) {
+		   interp2 T_MBH MBH Time M_BH
+		} else {
+		   set MBH=0
+		}
+		define M_BH $(M_BH)
+		
+		set Rho_tot=0*Radius # total mass density
+		set ntot=0*Radius # total number density
+		set y_min=1e30
+		set y_max=-1e30
+		do icomp=1,$Ncomp {
+		   set _y_$icomp=lg(Rho$icomp) if (Radius>$R_min_ && Radius<$R_max_)
+		   set Rho_tot=Rho_tot+Rho$icomp
+		   set ntot=ntot+Rho$icomp/m_comp_spedi[$icomp-1]
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set _x_=lg(Radius) if (Radius>$R_min_ && Radius<$R_max_)
+		define icomp 0
+		set lm_avrg=lg(Rho_tot/ntot) if (Radius>$R_min_ && Radius<$R_max_)
+		set _y_0=lg(Rho_tot) if (Radius>$R_min_ && Radius<$R_max_)
+		vecminmax _y_$icomp _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		
+plot_RhoProfile         # make the plot
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000 # XXXX
+		      expand $(0.85*$expand) 
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         location 5500 27600 3500 27700
+		      } else {
+		         location 5500 31000 3500 31000
+		      }
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _y_=_y_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) _y_
+		      }
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?PLOT_MAVRG==1) {
+		   expand $(0.95*$expand) 
+		   define y_gutter 0.1
+		   window 1 15 1 5:15
+		}
+		if ($?_SUPER_==0) {
+		   ticksize -1 0 -1 0
+		   if ($?PLOT_MAVRG==1) {
+		      if ($?PHYS_UNITS==1) {
+		         box 0 2 3 3
+		      } else {
+		         box 0 2 0 0
+		      }
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         box 1 2 3 3
+		      } else {
+		         box
+		      }
+		      xlabel Radius in {\it N}-body units
+		   }
+		   ylabel Density in {\it N}-body units
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_rho_msunpc3)) $($fy2+lg(unit_rho_msunpc3))
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Density in M_\odot\,pc^{-3}
+		      angle 0
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp])
+		      ctype $(ctypes_[$icomp])
+		   }
+		   connect _x_ _y_$icomp
+		}       
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		set _x_min_=-1e30
+		if ($?LIMIT_TO_R1==1) {
+		   set Time=$Time
+		   interp2 time_R_1 R_1 Time R1
+		   set _x_min_=lg(R1)
+		}
+		connect _x_ _y_$icomp if (_x_>=_x_min_)
+		ctype black
+		ltype 0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_+0.05*($fx2-$fx1)) $(_yh_+0.05*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Average mass diagram
+		
+		if ($?PLOT_MAVRG==1) {
+		   define y_gutter 0.1
+		   window 1 15 1 1:4
+		   if ($?FIGER_LIMITES2==0) {
+		      limits _x_ lm_avrg
+		      if ($fy2<$fy1+1) {
+		         limits $fx1 $fx2 $(0.5*($fy1+$fy2)-0.5) $(0.5*($fy1+$fy2)+0.5)
+		      } else {
+		         limits $fx1 $fx2 $($fy1-0.05*($fy2-$fy1)) $($fy2+0.05*($fy2-$fy1))
+		      }
+		   }
+		   box
+		   xlabel Radius in {\it N}-body units
+		   ylabel <M_\ast> in M_\odot
+		   connect _x_ lm_avrg
+		   window 1 7 1 3:7
+		}
+
+		if ($?_SUPER_==0) {
+		   # Time label
+		   put_profile_time_label_
+		
+		   # Mass function legend
+		   put_profile_mf_legend_
+		}
+		
+		re_init_graph
+
+
+CreateSequenceOfRhoProfiles 1 # $1 : vectors containing numbers of profiles to plot
+		foreach iProf $1 {
+		   define eps_file rho_profile$(sprintf('%4.4i',$iProf)).eps
+		   echo "> Creating $!eps_file..."
+		   eps $eps_file
+		   make_RhoProfile $iProf
+		   #ajoute_seg_droite -4.63 6.52 -1.75 2
+		   #ajoute_seg_droite -1.81 2.516 -2.23 1.3
+		}
+		device x11
+
+
+# make_ProjRhoProfile : plot projected density of cluster
+#                       use:
+#		        - Put star1.list file in current directory (or a link). And erase rho_profile*.asc files if necessary.
+#                       - In sm: use "init_RhoProfiles" to compute all the density profiles (one for each snapshot)
+#                         !!! Warning: rho_profile*.asc files have to be deleted "by hand" when one starts with another run (other star1.list file)
+#                       - In sm: use "make_ProjRhoProfile n" to plot (projected) density profile for snapshot n
+#                       options:
+#                       - if OUTSIDE_MF_LEGEND defined ("def OUTSIDE_MF_LEGEND"), put the legend for the mass spectrum outside of the diagram
+#                       - if PLOT_MAVRG is defined, also plot the (LOS) averaged stellar mass vs Radius (in a second panel)
+#                       - if FIGER_LIMITES is defined, keep the diagram limits as previously defined
+#                       - if T_RH set a value, indicate time in units of initial half-mass relaxation time ("define T_RH 0.093" for Plummer), FP time units are used otherwise
+make_ProjRhoProfile 1 # $1: number of rho_profileXXX.asc file to plot ($1=XXX)
+		read_RhoProfile $1
+		project_RhoProfile
+		plot_ProjRhoProfile
+		
+
+project_RhoProfile
+		set y_min=1e30
+		set y_max=-1e30
+		set R_ext=0.9999*Radius[dimen(Radius)-1]
+		set R_proj=Radius[do(0,dimen(Radius)-2)]
+		set Rho_proj_tot=0*R_proj
+		set n_proj_tot=0*R_proj
+		do ir=0,dimen(R_proj)-1 {
+		   set r_=R_proj[$ir]
+		   set z_=sqrt(Radius**2-r_**2) if (Radius>=r_ && Radius<R_ext)
+		   set rho_=Rho_tot             if (Radius>=r_ && Radius<R_ext)
+		   set Rho_proj_tot[$ir]=trapeze(z_,rho_)
+		}
+		set _y_0=lg(Rho_proj_tot) if (R_proj>$R_min_ && R_proj<$R_max_ && Rho_proj_tot>0)
+		vecminmax _y_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		
+		do icomp=1,$Ncomp {
+		   set Rho_proj$icomp=0*R_proj
+		   do ir=0,dimen(R_proj)-1 {
+		      set r_=R_proj[$ir]
+		      set z_=sqrt(Radius**2-r_**2) if (Radius>=r_ && Radius<R_ext)
+		      set rho_=Rho$icomp           if (Radius>=r_ && Radius<R_ext)
+		      set Rho_proj$icomp[$ir]=trapeze(z_,rho_)
+		   }
+		   set n_proj_tot=n_proj_tot + Rho_proj$icomp/m_comp_spedi[$icomp-1]
+		   set _y_$icomp=lg(Rho_proj$icomp) if (R_proj>$R_min_ && R_proj<$R_max_ && Rho_proj_tot>0)
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set m_avrg=Rho_proj_tot/n_proj_tot if (R_proj>$R_min_ && R_proj<$R_max_  && Rho_proj_tot>0)
+		set _x_=lg(R_proj) if (R_proj>$R_min_ && R_proj<$R_max_  && Rho_proj_tot>0)
+		
+plot_ProjRhoProfile         # make the plot
+		
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      location 5500 27600 3500 27700
+		   } else {
+		      location 5500 31000 3500 31000
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _y_=_y_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) _y_
+		      }
+		      limits $fx1 $fx2 $fy1 $($fy2+0.04*($fy2-$fy1))
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?PLOT_MAVRG==1) {
+		   expand $(0.95*$expand) 
+		   define y_gutter 0.1
+		   window 1 15 1 5:15
+		}
+		if ($?_SUPER_==0) {
+		   ticksize -1 0 -1 0
+		   if ($?PLOT_MAVRG==1) {
+		      box 0 2 3 3
+		   } else {
+		      box 1 2 3 3
+		      xlabel Radius in {\it N}-body units
+		   }
+		   ylabel Surface density in {\it N}-body units
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_m_msun*unit_r_pc**2)) $($fy2+lg(unit_m_msun*unit_r_pc**2)) 
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.15*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Surface density in {\it{M}}_{\odot}\,pc^{-2}
+		      angle 0
+		   } else {
+		      box 3 3 0 0
+		   }
+		}
+
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp])
+		      ctype $(ctypes_[$icomp])
+		   }
+		   connect _x_ _y_$icomp
+		}
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		connect _x_ _y_$icomp
+		ctype black
+		ltype 0
+
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+
+		# Average mass diagram
+		
+		if ($?PLOT_MAVRG==1) {
+		   define y_gutter 0.1
+		   window 1 15 1 1:4
+		   if ($?FIGER_LIMITES2==0) {
+		      limits _x_ m_avrg
+		      ticksize -1 0 0 0
+		      limits $fx1 $fx2 $($fy1-0.05*($fy2-$fy1)) $($fy2+0.05*($fy2-$fy1))
+		   }
+		   box
+		   xlabel Radius in {\it N}-body units
+		   ylabel <M_\ast> in M_\odot
+		   connect _x_ m_avrg
+		   window 1 7 1 3:7
+		}
+		
+		# Time label
+		put_profile_time_label_
+		
+		# Mass function legend
+		put_profile_mf_legend_
+		
+		re_init_graph
+
+init_SigmaProfiles # star1.list file must be in workin' directory, man!
+		get_spedi_MF
+		get_spedi_units
+		get_spedi_MBH
+		# create sigma_profileXXX.asc files
+		! ls -1 *.asc | grep -q '^sigma_profile[0-9][0-9]*\\.asc\\$' >/dev/null 2>&1
+		if ($exit_status==0) {
+		   echo "!!! Fait chier, y'a deja des p'tain de fichiers sigma_profileXXX.asc, con !!!"
+		   #return
+		} else {
+		   define perl_script "$HOME/GAS_MODEL/util/ExtractSigmaProfilesFromListFile.pl"
+		   ! [[ -f $perl_script ]]
+		   if ($exit_status!=0) { define perl_script ExtractSigmaProfilesFromListFile.pl }
+		   !gunzip --force --to-stdout star1.list(|.gz) | $perl_script
+		}
+		! ls -1 sigma_profile*.asc | sed 's/sigma_profile//; s/.asc//' | sort -nr | head -n1 > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Nfiles 1 }
+		! rm _TMP$!pid_script_sm""_
+		echo "> Felicitations, vous avez cree $!(Nfiles) fichiers !"
+
+# make_SigmaProfile : plot 3D velocity dispersion (= sqrt(Vx^2+Vy^2+Vz^2)) of cluster, as function of radius
+#                       use:
+#		        - Put star1.list file in current directory (or a link). And erase sigma_profile*.asc files if necessary.
+#                       - In sm: use "init_SigmaProfiles" to compute all the density profiles (one for each snapshot)
+#                         !!! Warning: sigma_profile*.asc files have to be deleted "by hand" when one starts with another run (other star1.list file)
+#                       - In sm: use "make_SigmaProfile n" to plot density profile for snapshot n
+#                       options:
+#                       - if OUTSIDE_MF_LEGEND defined ("def OUTSIDE_MF_LEGEND"), put the legend for the mass spectrum outside of the diagram
+#                       - if PLOT_MAVRG is defined, also plot the averaged stellar mass vs Radius (in a second panel)
+#                       - if FIGER_LIMITES is defined, keep the diagram limits as previously defined
+#                       - if T_RH set a value, indicate time in units of initial half-mass relaxation time ("define T_RH 0.093" for Plummer)
+#                         FP time units are used otherwise
+		
+make_SigmaProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+		read_SigmaProfile $1
+		plot_SigmaProfile
+	
+make_SigmaProfile_RT 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+		read_SigmaProfile $1
+		plot_SigmaProfile_RT
+
+make_AnisProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+		read_SigmaProfile $1
+		plot_Anisotropy
+
+read_SigmaProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+
+                # read data from file
+		if ($?R_max==0) {
+		   define R_max_ 1e30
+		} else {
+		   define R_max_ $R_max
+		}
+		if ($?R_min==0) {
+		   define R_min_ 0
+		} else {
+		   define R_min_ $R_min
+		}
+		define iFile $1
+		if ($iFile>Nfiles) {
+		   echo "!!! Y'a que $!(Nfiles) fichiers, grand fou !!!"
+		   return
+		}
+		lit_fort sigma_profile""$iFile"".asc
+		
+		# Below, we read the following data : Nstar gamma_Coulomb Time Ncomp
+		!cat sigma_profile""$iFile"".asc | grep '^\#.*=' | sed 's/Number of mass components/Ncomp/; s/ *= */ /; s/^\# *//' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { _Names_ 1.s _values_ 2 }
+		do i=0,dimen(_Names_)-1 {
+		   define $(_Names_[$i]) $(_values_[$i])
+		   set $(_Names_[$i])=$(_values_[$i])
+		   echo Variable $(_Names_[$i]) set to $$(_Names_[$i])
+		}
+		
+		# define the current BH mass
+		set Time=$Time
+		if (is_vector(MBH) && dimen(MBH)>1) {
+		   interp2 T_MBH MBH Time M_BH
+		} else {
+		   set MBH=0
+		}
+		define M_BH $(M_BH)
+		
+		set y_min=1e30
+		set y_max=-1e30
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		do icomp=1,$Ncomp_eff {
+		   set Sig3D$icomp = sqrt(SigR$icomp**2+2*SigT$icomp**2)
+		   set _y_$icomp = lg (Sig3D$icomp) if (Radius>$R_min_ && Radius<$R_max_)
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set _x_=lg(Radius) if (Radius>$R_min_ && Radius<$R_max_)
+		set Sig3DAvrg = sqrt(SigAvrgR**2+2*SigAvrgT**2)
+		set _y_0=lg(Sig3DAvrg) if (Radius>$R_min_ && Radius<$R_max_)
+		vecminmax _y_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		
+plot_SigmaProfile         # make the plot
+
+		if ($Ncomp_eff==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000 # XXXX
+		      expand $(0.85*$expand) 
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         location 5500 27600 3500 27700
+		      } else {
+		         location 5500 31000 3500 31000
+		      }
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _y_=_y_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) _y_
+		      }
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   if ($fy2>$fy1+1.5) {
+		   	ticksize -1 0 -1 0
+		   } else {	
+		   	ticksize -1 0 -1 2
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Velocity disp. (3D) in {\it N}-body units
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_u_kms)) $($fy2+lg(unit_u_kms))
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Velocity disp. (3D) in km\,s^{-1}
+		      angle 0
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp%dimen(ltypes_)])
+		      ctype $(ctypes_[$icomp%dimen(ctypes_)])
+		   }
+		   connect _x_ _y_$icomp
+		}       
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		connect _x_ _y_$icomp
+		ctype black
+		ltype 0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Time label
+		put_profile_time_label_
+		
+		# Mass function legend
+		put_profile_mf_legend_
+		
+		re_init_graph
+
+		
+plot_SigmaProfile_RT         # make the plot of radial and tang components of velocity dispersion (averaged over all mass components)
+
+                set _yr_=lg(SigAvrgR)
+		set _yt_=lg(SigAvrgT)
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000 # XXXX
+		      expand $(0.85*$expand) 
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         location 5500 27600 3500 27700
+		      } else {
+		         location 5500 31000 3500 31000
+		      }
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( _yr_ concat _yt_ )
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   if ($fy2>$fy1+1.5) {
+		   	ticksize -1 0 -1 0
+		   } else {	
+		   	ticksize -1 0 -1 2
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Velocity dispersion in {\it N}-body units
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_u_kms)) $($fy2+lg(unit_u_kms))
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Velocity dispersion in km\,s^{-1}
+		      angle 0
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+
+		connect _x_ _yr_
+		ltype 2
+		connect _x_ _yt_
+		ltype 0
+
+		set _y_0=_yr_
+		ctype black
+		ltype 0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Time label
+		put_profile_time_label_
+		
+		# Put legends for the two curves
+		expand 1.35
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.30  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.05  } else { define _dY_ $dY }
+		relocate $($_X0_) $($_Y0_)
+		ltype 0
+		draw $($_X0_+$_dX_) $($_Y0_)
+		relocate $($_X0_+1.2*$_dX_) $($_Y0_)
+		ltype 0
+		putlabel 6 \sigma_r
+		relocate $($_X0_) $($_Y0_-$_dY_)
+		ltype 2
+		draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		relocate $($_X0_+1.2*$_dX_) $($_Y0_-$_dY_)
+		ltype 0
+		putlabel 6 {\-1{2}}^{1/2}\,\sigma_t
+
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		re_init_graph
+
+		
+plot_Anisotropy         # 
+
+                set _y_=2*(1-(SigAvrgT/SigAvrgR)**2)
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      #location 5500 31000 3500 27700
+		      location 5500 27600 3500 27700
+		   } else {
+		      location 5500 31000 3500 31000
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ _y_
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _y__=_y_ if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) _y__
+		      }
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   ticksize -1 0 0 0
+ 		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Anisotropy 2-\sigma_t^2/\sigma_r^2
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $fy1 $fy2
+		      box 3 3 1 0
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+
+		connect _x_ _y_
+
+		set _y_0=_y_
+		
+		ctype black
+		ltype 0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+
+		ltype 1
+		relocate $fx1 0
+		draw $fx2 0
+		ltype 0
+		
+		# Time label
+		put_profile_time_label_
+
+ 		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		re_init_graph
+
+
+make_TempProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+		read_TempProfile $1
+		plot_TempProfile
+
+read_TempProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+
+		read_RhoProfile $1
+		read_SigmaProfile $1
+		
+		set y_min=1e30
+		set y_max=-1e30
+		set T_avrg=0*Radius
+		set norm=0*Radius
+		do icomp=1,$Ncomp {
+		   set Ti = 0.5*m_comp_spedi[$icomp-1]*Sig3D$icomp**2/m_averg_spedi
+		   set _y_$icomp = lg(Ti) if (Radius>$R_min_ && Radius<$R_max_)
+		   set T_avrg    = T_avrg+Rho$icomp/m_comp_spedi[$icomp-1]*Ti
+		   set Rho_tot=Rho_tot+Rho$icomp
+		   set norm=norm+Rho$icomp/m_comp_spedi[$icomp-1]
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set _x_=lg(Radius) if (Radius>$R_min_ && Radius<$R_max_)
+		set T_avrg=T_avrg/norm
+		set _y_0=lg(T_avrg) if (Radius>$R_min_ && Radius<$R_max_)
+		vecminmax _y_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		
+plot_TempProfile         # make the plot
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000
+		      expand $(0.85*$expand) 
+		   } else {
+		      location 5000 31000 3500 31000
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   ticksize -1 0 -1 0
+		   box
+		   xlabel Radius in {\it N}-body units
+		   ylabel Temperature \frac{1}{2}\frac{\,\,\,m_i}{<m>}\,\,\sigma_v^2 in {\it N}-body units
+		}
+		
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp%dimen(ltypes_)])
+		      ctype $(ctypes_[$icomp%dimen(ctypes_)])
+		   }
+		   connect _x_ _y_$icomp
+		}       
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		connect _x_ _y_$icomp
+		ctype black
+		ltype 0
+		
+		# Time label
+		put_profile_time_label_
+		
+		# Mass function legend
+		put_profile_mf_legend_
+		
+		re_init_graph
+
+
+CreateSequenceOfTempProfiles 1 # $1 : vectors containing numbers of profiles to plot
+		foreach iProf $1 {
+		   define eps_file temp_profile$(sprintf('%4.4i',$iProf)).eps
+		   echo "> Creating $!eps_file..."
+		   eps $eps_file
+		   make_TempProfile $iProf
+		}
+		device x11
+
+project_SigmaProfile # Compute observable velocity dispersions, i.e. along the line-of-sight and perpendicular to it (proper-motion)
+		     # This is only done for the _average_ (all components) velocity dispersion
+		set y_min=1e30
+		set y_max=-1e30
+		set R_ext=0.9999*Radius[dimen(Radius)-1]
+		set R_proj=Radius[do(0,dimen(Radius)-2)]
+		set Sig2los_tot=0*R_proj
+		set Sig2pmr_tot=0*R_proj
+		set Sig2pmt_tot=0*R_proj
+		set Rho_proj_tot=0*R_proj
+		do ir=0,dimen(R_proj)-1 {
+		   set r_=R_proj[$ir]
+		   set z_=sqrt(Radius**2-r_**2) if (Radius>=r_ && Radius>0 && Radius<R_ext)
+		   set R_=Radius                if (Radius>=r_ && Radius>0 && Radius<R_ext)
+		   set SR2_=SigAvrgR**2         if (Radius>=r_ && Radius>0 && Radius<R_ext)
+		   set ST2_=SigAvrgT**2         if (Radius>=r_ && Radius>0 && Radius<R_ext)
+		   set Rho_=Rho_tot             if (Radius>=r_ && Radius>0 && Radius<R_ext)
+		   set sin2_=z_**2/R_**2
+		   set cos2_=1-sin2_
+		   set Rho_proj_=trapeze(z_,Rho_)
+		   set Rho_proj_tot[$ir]=Rho_proj_
+                   # Integrate line-of-sight dispersion
+		   set integrand_= Rho_*(sin2_*SR2_ + cos2_*ST2_)
+		   set Sig2los_tot[$ir]=trapeze(z_,integrand_)/Rho_proj_
+                   # Integrate radial proper motion dispersion
+		   set integrand_= Rho_*(cos2_*SR2_ + sin2_*ST2_)
+		   set Sig2pmr_tot[$ir]=trapeze(z_,integrand_)/Rho_proj_
+                   # Integrate tangential proper motion dispersion
+		   set integrand_= Rho_*ST2_
+		   set Sig2pmt_tot[$ir]=trapeze(z_,integrand_)/Rho_proj_
+		}
+		set _y_los_0=sqrt(Sig2los_tot) if (R_proj>$R_min_ && R_proj<$R_max_ && Rho_proj_tot>0)
+		set _y_pmr_0=sqrt(Sig2pmr_tot) if (R_proj>$R_min_ && R_proj<$R_max_ && Rho_proj_tot>0)
+		set _y_pmt_0=sqrt(Sig2pmt_tot) if (R_proj>$R_min_ && R_proj<$R_max_ && Rho_proj_tot>0)
+		if ($?ORD_LOG==1) {
+		   set _y_los_0=lg(_y_los_0)
+		   set _y_pmr_0=lg(_y_pmr_0)
+		   set _y_pmt_0=lg(_y_pmt_0)
+		}
+		set y_min=1e30
+		set y_max=-1e30
+		vecminmax _y_los_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		vecminmax _y_pm_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		set _x_=lg(R_proj) if (R_proj>$R_min_ && R_proj<$R_max_  && Rho_proj_tot>0)
+
+		
+make_ProjSigmaProfile 1 # $1: number of sigma_profileXXX.asc file to plot ($1=XXX)
+		read_SigmaProfile $1
+		project_SigmaProfile
+		plot_ProjSigmaProfile
+
+plot_ProjSigmaProfile         # make the plot
+ 		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      location 5500 27600 3500 27700
+		   } else {
+		      location 5500 31000 3500 31000
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _yl_=_y_los_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         set _ypr_=_y_pmr_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         set _ypt_=_y_pmt_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) (_yl_ concat _ypr_ concat _ypt_)
+		      }
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   if ($?ORD_LOG==1) {
+		      if ($fy2>$fy1+1.5) {
+		         ticksize -1 0 -1 0
+		      } else {	
+		         ticksize -1 0 -1 2
+		      }
+		   } else {
+		      ticksize -1 0 0 0
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Projected velocity disp. in {\it N}-body units
+		   if ($?PHYS_UNITS==1) {
+		      if ($?ORD_LOG==1) {
+		         limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_u_kms)) $($fy2+lg(unit_u_kms))
+		      } else {
+		         limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1*unit_u_kms) $($fy2*unit_u_kms)
+		      }
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.13*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Projected velocity disp. in km\,s^{-1}
+		      angle 0
+		   }
+		}
+		
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ctype black
+		}
+		ltype 0
+		connect _x_ _y_los_$icomp
+		ltype 3
+		connect _x_ _y_pmr_$icomp
+		ltype 4
+		connect _x_ _y_pmt_$icomp
+		ctype black
+		ltype 0
+		
+		set _y_0=_y_los_0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Put legends for the two curves
+		expand 1.35
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.30  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.12  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.05  } else { define _dY_ $dY }
+		relocate $($_X0_) $($_Y0_)
+		ltype 0
+		draw $($_X0_+$_dX_) $($_Y0_)
+		relocate $($_X0_+1.1*$_dX_) $($_Y0_)
+		ltype 0
+		putlabel 6 {\1\sigma}_{LOS}
+		relocate $($_X0_) $($_Y0_-$_dY_)
+		ltype 3
+		draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		relocate $($_X0_+1.1*$_dX_) $($_Y0_-$_dY_)
+		ltype 0
+		putlabel 6 {\1\sigma}_{PM,r}
+		relocate $($_X0_) $($_Y0_-2*$_dY_)
+		ltype 4
+		draw $($_X0_+$_dX_) $($_Y0_-2*$_dY_)
+		relocate $($_X0_+1.1*$_dX_) $($_Y0_-2*$_dY_)
+		ltype 0 
+		putlabel 6 {\1\sigma}_{PM,t}
+		
+		# Time label
+		put_profile_time_label_
+		
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		re_init_graph
+
+
+# Routines for Bulk Velocity plots
+		
+init_BulveProfiles # star1.list file must be in workin' directory, man!
+		get_spedi_MF
+		get_spedi_units
+		get_spedi_MBH
+		# create bulve_profileXXX.asc files
+		! ls -1 *.asc | grep -q '^bulve_profile[0-9][0-9]*\\.asc\\$' >/dev/null 2>&1
+		if ($exit_status==0) {
+		   echo "!!! Fait chier, y'a deja des p'tain de fichiers bulve_profileXXX.asc, con !!!"
+		   #return
+		} else {
+		   define perl_script "$HOME/GAS_MODEL/util/ExtractBulveProfilesFromListFile.pl"
+		   ! [[ -f $perl_script ]]
+		   if ($exit_status!=0) { define perl_script ExtractBulveProfilesFromListFile.pl }
+		   !gunzip --force --to-stdout star1.list(|.gz) | $perl_script
+		}
+		! ls -1 bulve_profile*.asc | sed 's/bulve_profile//; s/.asc//' | sort -nr | head -n1 > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Nfiles 1 }
+		! rm _TMP$!pid_script_sm""_
+		echo "> Felicitations, vous avez cree $!(Nfiles) fichiers !"
+		
+make_BulveProfile 1 # $1: number of bulve_profileXXX.asc file to plot ($1=XXX)
+		read_BulveProfile $1
+		plot_BulveProfile
+
+read_BulveProfile 1     # $1: number of bulve_profileXXX.asc file to plot ($1=XXX)
+
+                # read data from file
+		if ($?R_max==0) {
+		   define R_max_ 1e30
+		} else {
+		   define R_max_ $R_max
+		}
+		if ($?R_min==0) {
+		   define R_min_ 0
+		} else {
+		   define R_min_ $R_min
+		}
+		define iFile $1
+		if ($iFile>Nfiles) {
+		   echo "!!! Y'a que $!(Nfiles) fichiers, grand fou !!!"
+		   return
+		}
+		lit_fort bulve_profile""$iFile"".asc
+		
+		# Below, we read the following data : Nstar gamma_Coulomb Time Ncomp
+		!cat bulve_profile""$iFile"".asc | grep '^\#.*=' | sed 's/Number of mass components/Ncomp/; s/ *= */ /; s/^\# *//' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { _Names_ 1.s _values_ 2 }
+		do i=0,dimen(_Names_)-1 {
+		   define $(_Names_[$i]) $(_values_[$i])
+		   set $(_Names_[$i])=$(_values_[$i])
+		   echo Variable $(_Names_[$i]) set to $$(_Names_[$i])
+		}
+		
+		# define the current BH mass
+		set Time=$Time
+		if (is_vector(MBH) && dimen(MBH)>1) {
+		   interp2 T_MBH MBH Time M_BH
+		} else {
+		   set MBH=0
+		}
+		define M_BH $(M_BH)
+		
+		set y_min=1e30
+		set y_max=-1e30
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		do icomp=1,$Ncomp_eff {
+		   set _y_$icomp = lg (abs(Bulve$icomp)) if (Radius>$R_min_ && Radius<$R_max_)
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set _x_=lg(Radius) if (Radius>$R_min_ && Radius<$R_max_)
+		set BulveAvrg = Bulve1 # Change this for mult-component models (adapt perl script) XXXX
+		set _y_0=lg(abs(BulveAvrg)) if (Radius>$R_min_ && Radius<$R_max_)
+		vecminmax _y_0 _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		
+plot_BulveProfile         # make the plot
+
+		if ($Ncomp_eff==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000 # XXXX
+		      expand $(0.85*$expand) 
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         location 5500 27600 3500 27700
+		      } else {
+		         location 5500 31000 3500 31000
+		      }
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		      if ($?X_MIN==1 && $?X_MAX==1) {
+		         set _y_=_y_0 if (_x_<=lg($X_MAX) && _x_>=lg($X_MIN))
+		         limits $(lg($X_MIN)) $(lg($X_MAX)) _y_
+		      }
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   if ($fy2>$fy1+1.5) {
+		   	ticksize -1 0 -1 0
+		   } else {	
+		   	ticksize -1 0 -1 2
+		   }
+		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Bulk velocity in {\it N}-body units (abs. value)
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_u_kms)) $($fy2+lg(unit_u_kms))
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Bulk velocity in km\,s^{-1}
+		      angle 0
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp%dimen(ltypes_)])
+		      ctype $(ctypes_[$icomp%dimen(ctypes_)])
+		   }
+		   connect _x_ _y_$icomp
+		}       
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		if ($Ncomp_eff==0) {
+		   ctype red
+		   connect _x_ _y_$icomp if (Bulve1>0)
+		   ctype blue
+		   connect _x_ _y_$icomp if (Bulve1<0)
+		   ctype black
+		} else {
+		   connect _x_ _y_$icomp
+		}
+		ctype black
+		ltype 0
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			interp2 _x_ _y_0 _x1_ _y1_
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xh_=lg(Rcrit)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 5 2
+			expand 2.5
+			points _xh_ _yh_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_) $(_yh_+0.08*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Time label
+		put_profile_time_label_
+		
+		# Mass function legend
+		put_profile_mf_legend_
+		
+		re_init_graph
+
+
+
+init_MassProfiles # star1.list file must be in workin' directory, man!
+		delete Nfiles
+		get_spedi_units
+		get_spedi_MF
+		get_spedi_MBH
+		# create mass_profileXXX.asc files
+		! ls -1 *.asc | grep -q '^mass_profile[0-9][0-9]*\\.asc\\$' >/dev/null 2>&1
+		if ($exit_status==0) {
+		   echo "!!! Fait chier, y'a deja des p'tain de fichiers mass_profileXXX.asc, con !!!"
+		   #return
+		} else {
+		   define perl_script "$HOME/GAS_MODEL/util/ExtractMassProfilesFromListFile.pl"
+		   ! [[ -f $perl_script ]]
+		   if ($exit_status!=0) { define perl_script ExtractMassProfilesFromListFile.pl }
+		   !gunzip --force --to-stdout star1.list(|.gz) | $perl_script
+		}
+		! ls -1 mass_profile*.asc | sed 's/mass_profile//; s/.asc//' | sort -nr | head -n1 > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Nfiles 1 }
+		define Nfiles $(Nfiles)
+		! rm _TMP$!pid_script_sm""_
+		echo "> Felicitations, vous avez cree $!(Nfiles) fichiers !"
+
+make_MassProfile 1 # $1: number of mass_profileXXX.asc file to plot ($1=XXX)
+		read_MassProfile $1
+		plot_MassProfile
+
+read_MassProfile 1 # $1: number of mass_profileXXX.asc file to plot ($1=XXX)
+
+                # read data from file
+		if ($?R_max==0) {
+		   define R_max_ 1e30
+		} else {
+		   define R_max_ $R_max
+		}
+		if ($?R_min==0) {
+		   define R_min_ 0
+		} else {
+		   define R_min_ $R_min
+		}
+		define iFile $1
+		if ($iFile>Nfiles) {
+		   echo "!!! Y'a que $!(Nfiles) fichiers, grand fou !!!"
+		   return
+		}
+		lit_fort mass_profile""$iFile"".asc
+		
+		# Below, we read the following data : Nstar gamma_Coulomb Time Ncomp
+		!cat mass_profile""$iFile"".asc | grep '^\#.*=' | sed 's/Number of mass components/Ncomp/; s/ *= */ /; s/^\# *//' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { _Names_ 1.s _values_ 2 }
+		do i=0,dimen(_Names_)-1 {
+		   define $(_Names_[$i]) $(_values_[$i])
+		   echo Variable $(_Names_[$i]) set to $$(_Names_[$i])
+		   set $(_Names_[$i])=$(_values_[$i])
+		}
+		
+		# define the current BH mass
+		set Time=$Time
+		if (is_vector(MBH) && dimen(MBH)>1) {
+		   interp2 T_MBH MBH Time M_BH
+		} else {
+		   set MBH=0
+		}
+		define M_BH $(M_BH)
+		
+		set Mass_tot=TotMass # total mass (all components)
+		set y_min=1e30
+		set y_max=-1e30
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		do icomp=1,$Ncomp_eff {
+		   set _y_$icomp=lg(Mass$icomp) if (Radius>$R_min_ && Radius<$R_max_)
+		   vecminmax _y_$icomp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set _x_=lg(Radius) if (Radius>$R_min_ && Radius<$R_max_)
+		define icomp 0
+		set _y_0=lg(Mass_tot) if (Radius>$R_min_ && Radius<$R_max_)
+		vecminmax _y_$icomp _min_ _max_
+		set y_min=(y_min>$_min_)?$_min_:y_min
+		set y_max=(y_max<$_max_)?$_max_:y_max
+		
+plot_MassProfile         # make the plot
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   init_graph
+		   lweight 2
+		   expand 1.45
+		   if ($?PHYS_UNITS==1) {
+		      expand $(0.95*$expand)
+		   }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000 # XXXX
+		      expand $(0.85*$expand) 
+		   } else {
+		      if ($?PHYS_UNITS==1) {
+		         location 5500 27600 3500 26700
+		      } else {
+		         location 5500 31000 3500 30000
+		      }
+		   }
+		   lweight 2
+		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ ( y_min concat y_max )
+		   }
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		if ($?_SUPER_==0) {
+		   ticksize -1 0 -1 0
+		   if ($?PHYS_UNITS==1) {
+		      box 1 2 3 3
+		   } else {
+		      box
+		   }
+		   xlabel Radius in {\it N}-body units
+		   ylabel Enclosed mass in {\it M}_{cl}(t=0)
+		   if ($?PHYS_UNITS==1) {
+		      limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $($fy1+lg(unit_m_msun)) $($fy2+lg(unit_m_msun))
+		      box 3 3 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Radius in pc
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Enclosed mass in {\it M}_\odot
+		      angle 0
+		   }
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		
+		do icomp=1,$Ncomp_eff {
+		   if ($?_SUPER_==0) {
+		      ltype $(ltypes_[$icomp])
+		      ctype $(ctypes_[$icomp])
+		   }
+		   connect _x_ _y_$icomp
+		}       
+		define icomp 0
+		if ($?_SUPER_==0) {
+		   ltype $(ltypes_[$icomp])
+		   ctype $(ctypes_[$icomp])
+		}
+		connect _x_ _y_$icomp
+		ctype black
+		ltype 0
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+		        #set M_BH=$M_BH
+		        #interp2 Mass_tot Radius M_BH Rh
+			set _xh_=lg(Rh)
+			interp2 _x_ _y_0 _xh_ _yh_
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		        ltype 1
+		        relocate $fx1 $(_yh_)
+		        draw $fx2 $(_yh_)
+		        ltype 0
+		}
+		
+		
+		# Time label
+		put_profile_time_label_
+		
+		# M_BH label
+		put_profile_mbh_label_
+		
+		# Mass function legend
+		put_profile_mf_legend_
+		
+		re_init_graph
+
+
+put_profile_time_label_
+		if ($?DEC_NB_TIME==0) { 
+		   define DEC_NB_TIME_ 2
+		} else {
+		   define DEC_NB_TIME_ $DEC_NB_TIME
+		}
+		set TheTime=$Time/$Nstar*ln($Nstar*$gamma_Coulomb)
+		if ($?PHYS_UNITS==0) {
+		   expand 1.25
+		   relocate ( $(0.5*($gx1+$gx2)) 31900 )
+		   if ($?T_RH==1) {
+		      putlabel 5 T\,=\,$(sprintf('%5.$!($DEC_NB_TIME_)e',TheTime/$T_RH))\,{\it T}_{rh}{\-1{(0)}}
+		   } else {
+		      putlabel 5 T\,=\,$(sprintf('%5.$!($DEC_NB_TIME_)e',TheTime)) FP units
+		   }
+		} else {
+		   expand 1.25
+		   relocate ( $(0.5*($gx1+$gx2)) 31900 )
+		   if ($?T_RH==1) {
+		      putlabel 5 \t{\it T}=\,$(sprintf('%5.$!($DEC_NB_TIME_)t',TheTime/$T_RH))\,{\it T}_{rh}{\-1{(0)}}\,=\,$(sprintf('%5.$!($DEC_NB_TIME_)t',$Time*unit_t_yr))\,yrs
+		   } else {
+		      putlabel 5 \t{\it T}=\,$(sprintf('%5.$!($DEC_NB_TIME_)t',TheTime))\,FP\,units\,=\,$(sprintf('%5.$!($DEC_NB_TIME_)t',$Time*unit_t_yr))\,yrs
+		   }
+		}
+		
+		re_init_graph
+
+put_profile_mbh_label_
+		if ($?PHYS_UNITS==0) {
+		   expand 1.35
+		   relocate ( 6000 30600 )
+		   putlabel 6 {\s M}_{bh}\,=\,$(sprintf('%5.2g',$M_BH))\,{\it M}_{cl}(t=0)
+		} else {
+		   expand 1.35
+		   relocate ( 2000 30600 )
+		   putlabel 6 {\s M}_{bh}\,=\,$(sprintf('%5.2g',$M_BH))\,{\it M}_{cl}(t=0)\,=\,$(sprintf('%5.2t',unit_m_msun*$M_BH))\,{\it M}_\odot
+		}
+		
+		re_init_graph
+
+put_profile_mf_legend_
+		if ($?_SUPER_==0) {
+		   expand 0.9
+		   if ($?X0==0) { define _X0_ 0.07  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.25  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.04  } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.03  } else { define _dY_ $dY }
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 5000 32000 5000 30000
+		      define _X0_ 0.77
+		      define _Y0_ 0.95
+		      define _dX_ 0.03
+		      define _dY_ 0.033
+		      expand 0.85   
+		   }
+		   limits 0 1 0 1
+		   if ($Ncomp_eff>0) {
+		      define _i_ 0
+		      ltype $(ltypes_[0])
+		      ctype $(ctypes_[0])
+		      #relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		      #draw $($_X0_+2*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #ltype 0
+		      #relocate $($_X0_+2.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #putlabel 6  Average
+		      #define _i_ $($_i_+1.3)
+		      relocate $($_X0_+1.5*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 m_i (M_{\odot})
+		      relocate $($_X0_+5.9*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 f_m
+		      define _i_ $($_i_+0.3)
+		      do icomp=0,$Ncomp_eff-1 {
+		         define _i_ $($_i_+1)
+		         ltype $(ltypes_[($icomp+1)%dimen(ltypes_)])
+		         ctype $(ctypes_[($icomp+1)%dimen(ctypes_)])
+		         relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		         draw $($_X0_+2*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         ltype 0
+		         relocate $($_X0_+2.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%3.2f',m_comp_spedi[$icomp]))
+		         relocate $($_X0_+5.5*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%5.4f',fM_comp_spedi[$icomp]))
+		      }
+		   }     
+		
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000
+		   }
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   ctype black
+		   ltype 0
+		}
+		
+		re_init_graph
+
+compute_infl_radius_der # We define the influence radius as the point 
+                        # where -(d(ln(rho))/d(ln(R))) is minimum 
+                        # (avoiding inner-most and outer-most regions)
+                        # Unfortunately, this leads to some wrong values
+                        # Use "Cleanup_Rh" to determine a clean step-->Rh relation by hand
+	        init_RhoProfiles
+		set dimen(R_h)=$Nfiles
+		set dimen(time_R_h)=$Nfiles
+		do iprof=0,$Nfiles-1 { 
+			# Read each density profile in turn
+			read_RhoProfile $iprof
+			compute_log_dens_derivative_
+			set _d_=abs(dLgRho_dLgR)
+			sort { _d_ R }
+			set R_h[$iprof] = R[0]
+			set time_R_h[$iprof] = $Time
+		}
+		
+compute_log_dens_derivative_
+ 		define N_boundary 10
+		set i=do($N_boundary,dimen(Radius)-$N_boundary-1)
+		set ip1=do($N_boundary+1,dimen(Radius)-$N_boundary)
+		set R_i  =Radius[i] # R_i
+		set R_ip1=Radius[ip1] # R_{i+1}
+		set Rho_i  =Rho_tot[i] # Rho_i
+		set Rho_ip1=Rho_tot[ip1] # Rho_{i+1}
+		set dLgRho_dLgR=(R_ip1+R_i)/(Rho_ip1+Rho_i) * (Rho_ip1-Rho_i)/(R_ip1-R_i) 
+		set R=(R_ip1+R_i)/2
+		set dLgRho_dLgR=-dLgRho_dLgR
+		#set R=R                     if (dLgRho_dLgR>0)
+		#set dLgRho_dLgR=dLgRho_dLgR if (dLgRho_dLgR>0)
+
+Cleanup_Rh
+		set iStep=0,dimen(R_h)-1
+		set xh=lg(R_h)
+		limits iStep xh
+                ctype black
+		erase
+		ticksize 0 0 -1 0
+                expand 1.3
+                box
+		ptype 8 3
+                expand 0.6
+		points iStep xh
+                expand 1.45
+		ptype 4 1
+		ctype red
+		cursor _xselec_ _yselec_
+		interp2 _xselec_ _yselec_ iStep xh
+		set R_h=10**xh
+		ctype red connect iStep xh
+                ctype black
+
+
+
+#compute_infl_radius_sigma # We define the influence radius as the point 
+                           # where  sigma_v^2=alpha*G*M_BH/r with some reasonable value for alpha...
+                           # (avoiding inner-most and outer-most regions)
+		           # Doesn't seem to be pratical. Impossible to find a "universal" alpha...
+
+
+compute_infl_radius_mass # We define the influence radius as the point 
+                         # where Mr=M_BH where Mr is the stellar mass enclosed by radius r
+	        init_MassProfiles
+		set dimen(R_h)=$Nfiles
+		set dimen(time_R_h)=$Nfiles
+		set dimen(R_1)=$Nfiles
+		set dimen(time_R_1)=$Nfiles
+		do iprof=0,$Nfiles-1 { 
+			# Read each mass profile in turn
+			read_MassProfile $iprof
+			set M_BH=$M_BH
+			set M_1=1/$Nstar
+		        set M_r=Mass_tot # Mass in stars
+		        set time_R_h[$iprof] = $Time
+		        set time_R_1[$iprof] = $Time
+		        if (M_r[dimen(M_r)-1]>M_BH) {
+		           interp2 M_r Radius M_BH R_
+		           set R_h[$iprof] = R_
+		        } else {
+		           set R_h[$iprof] = -1
+		        }
+		        if (M_r[0]<M_1) {
+		           interp2 M_r Radius M_1 R_
+		           set R_1[$iprof] = R_
+		        } else {
+		           set R_1[$iprof] = -1
+		        }
+		}
+
+compute_rho_sig_infl_radius # Get evolution of density and velocity dispersion inside and at influence radius
+		            # Call after compute_infl_radius_*
+	        init_MassProfiles
+		init_RhoProfiles
+		init_SigmaProfiles
+		set dimen(Rho_at_R_h)=$Nfiles
+		set dimen(Rho_in_R_h)=$Nfiles
+		set dimen(Sig_at_R_h)=$Nfiles
+		set dimen(Sig_in_R_h)=$Nfiles
+		do iprof=0,$Nfiles-1 {
+		   set t_=time_R_h[$iprof]
+		   set R_infl_=R_h[$iprof]
+		   
+		   if (R_infl_>0) {
+		      
+		      read_RhoProfile $iprof
+		      interp2 Radius Rho_tot R_infl_ _y_
+		      set Rho_at_R_h[$iprof]=_y_
+		      
+		      read_MassProfile $iprof
+		      interp2 Radius Mass_tot R_infl_ _m_
+		      echo $(_m_)
+		      set Rho_in_R_h[$iprof]=_m_/(4*pi/3*R_infl_**3)
+		      
+		      read_SigmaProfile $iprof
+		      interp2 Radius Sig3DAvrg R_infl_ _y_
+		      set Sig_at_R_h[$iprof]=_y_
+
+		      set dT_=4*pi*Rho_tot*(Radius*Sig3DAvrg)**2
+		      interp2 Radius dT_ R_infl_ _y_
+		      set R_=Radius if (Radius<R_infl_)
+		      set R_=R_ concat R_infl_
+		      set dT_=dT_ if (Radius<R_infl_)
+		      set dT_=dT_ concat _y_
+		      set Sig_in_R_h[$iprof] = sqrt(trapeze(R_,dT_)/_m_)
+		   } else {
+		      foreach vec { Rho_at_R_h Rho_in_R_h Sig_at_R_h Sig_in_R_h } {
+		         set $vec[$iprof]=-1
+		      }
+		   }
+ 		}
+
+compute_1star_radius # Radius enclosing 1 <M_star> (average mass of 1 star)
+	        init_MassProfiles
+		set dimen(R_1)=$Nfiles
+		set dimen(time_R_1)=$Nfiles
+		do iprof=0,$Nfiles-1 { 
+			# Read each mass profile in turn
+			read_MassProfile $iprof
+			set M_1=1/$Nstar
+		        set M_r=Mass_tot # Mass in stars
+		        set time_R_1[$iprof] = $Time
+		        if (M_r[0]<M_1) {
+		           interp2 M_r Radius M_1 R_
+		           set R_1[$iprof] = R_
+		        } else {
+		           set R_1[$iprof] = -1
+		        }
+		}
+
+
+check_Jeans_Eqn 1 # do "init_MassProfiles init_RhoProfiles init_SigmaProfiles" before use
+		read_MassProfile $1
+		set R_Mass=Radius
+		read_SigmaProfile $1 # defines SigAvrgR and SigAvrgT
+		set R_Sigm=Radius
+		read_RhoProfile $1 # defines Rho_tot and ntot
+		set R_Dens=Radius
+
+		interp2 R_Sigm SigAvrgR R_Dens SigR
+		
+		set term1=deriv_log(R_Dens,ntot)
+		interp2 R_Dens term1 Radius term1
+		set term2=deriv_log(R_Sigm,SigAvrgR**2)
+		interp2 R_Sigm term2 Radius term2
+		set term3=2*(1-SigAvrgT**2/SigAvrgR**2) # 2*beta
+		interp2 R_Sigm term3 Radius term3
+
+		set sig2r=SigAvrgR**2*R_Sigm
+		interp2 R_Sigm sig2r Radius sig2r
+
+		set der_log_n=term1
+		set der_log_sigr2=term2
+		set two_beta=term3
+
+		if ($?JEANS_QQQ==0) {
+		   set term1=-sig2r*der_log_n
+		   set term2=-sig2r*der_log_sigr2
+		   set term3=-sig2r*two_beta
+		   set Jeans_sum=term1+term2+term3
+		} else {
+		   set Jeans_sum=0
+		}
+		set _x_=lg(Radius)
+
+		init_graph
+		lweight 2
+		expand 1.6
+		location 4500 31000 5000 31000
+		if ($?FIGER_LIMITES==0) {
+		   limits _x_ (term1 concat term2 concat term3 concat Jeans_sum)
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		ticksize -1 0 0 0
+		box
+		xlabel Radius in {\it N}-body units
+		ylabel Jeans Eq. terms in {\it N}-body units
+
+		if ($?JEANS_QQQ==0) {
+		   ltype 1
+		   connect (lg(R_Mass)) (Mass_tot+M_BH)
+		} else {
+		   ltype 1
+		   relocate $fx1 0
+		   draw $fx2 0
+		   relocate $fx1 -1
+		   draw $fx2 -1
+		   relocate $fx1 -1.75
+		   draw $fx2 -1.75
+		   relocate $fx1 -2.23
+		   draw $fx2 -2.23
+		}
+		
+		ctype blue
+		ltype 2
+		connect _x_ term1
+		ctype red
+		ltype 3
+		connect _x_ term2
+		ctype green
+		ltype 4
+		connect _x_ term3
+		ctype black
+		ltype 0
+		if ($?JEANS_QQQ==0) {
+		   connect _x_ Jeans_sum
+		}
+
+		if ($?SHOW_R1==1) {
+			set Time=$Time
+			interp2 time_R_1 R_1 Time R1
+			set _x1_=lg(R1)
+			set _y1_=0
+			ptype 4 3
+			expand 2
+			points _x1_ _y1_ 
+			expand 1.45
+		}
+		if ($?SHOW_RH==1) {
+			set Time=$Time
+			interp2 time_R_h R_h Time Rh
+			set _xh_=lg(Rh)
+			set _yh_=0
+			ptype 8 3
+			expand 2
+			points _xh_ _yh_
+			expand 1.45
+		}
+		if ($?SHOW_RCRIT==1) {
+			set Time=$Time
+			interp2 T_Rcrit R_Rcrit Time Rcrit
+			set _xc_=lg(Rcrit)
+			set _yc_=0
+			ptype 5 2
+			expand 2.5
+			points _xc_ _yc_
+			expand 1.45
+		        if ($?PLOT_SLOPE==1) {
+		           ajoute_seg_droite $(_xh_+0.05*($fx2-$fx1)) $(_yh_+0.05*($fy2-$fy1)) $PLOT_SLOPE 1.2
+		        }
+		}
+		
+		# Put legends for the curves
+		expand 1.35
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.30  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.05  } else { define _dY_ $dY }
+		set _i_=0
+		
+		if ($?JEANS_QQQ==0) {
+		   relocate $($_X0_) $($_Y0_-_i_*$_dY_+0.34*$_dY_)
+		   ctype black ltype 1
+		   draw $($_X0_+$_dX_) $($_Y0_-_i_*$_dY_+0.34*$_dY_)
+		   ltype 0
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_-_i_*$_dY_+0.34*$_dY_)
+		   putlabel 6 {\it G}\,{\it M}_r
+		   set _i_=_i_+1
+		}
+		
+		relocate $($_X0_) $($_Y0_-_i_*$_dY_)
+		ctype blue ltype 2
+		draw $($_X0_+$_dX_) $($_Y0_-_i_*$_dY_)
+		ltype 0
+		relocate $($_X0_+1.3*$_dX_) $($_Y0_-_i_*$_dY_)
+		if ($?JEANS_QQQ==0) {
+		   putlabel 6 -\sigma_r^2\,{\it r}\,d\,ln\,{\it n}/d\,ln\,{\it r}
+		} else {
+		   putlabel 6 d\,ln\,{\it n}/d\,ln\,{\it r}
+		}
+		set _i_=_i_+1
+		
+		relocate $($_X0_) $($_Y0_-_i_*$_dY_)
+		ctype red ltype 3
+		draw $($_X0_+$_dX_) $($_Y0_-_i_*$_dY_)
+		ltype 0
+		relocate $($_X0_+1.3*$_dX_) $($_Y0_-_i_*$_dY_)
+		if ($?JEANS_QQQ==0) {
+		   putlabel 6 -\sigma_r^2\,{\it r}\,d\,ln\,\sigma_r^2/d\,ln\,{\it r}
+		} else {
+		   putlabel 6 d\,ln\,\sigma_r^2/d\,ln\,{\it r}
+		}
+		set _i_=_i_+1
+		
+		relocate $($_X0_) $($_Y0_-_i_*$_dY_)
+		ctype green ltype 4
+		draw $($_X0_+$_dX_) $($_Y0_-_i_*$_dY_)
+		ltype 0
+		relocate $($_X0_+1.3*$_dX_) $($_Y0_-_i_*$_dY_)
+		if ($?JEANS_QQQ==0) {
+		   putlabel 6 -2\sigma_r^2\,{\it r}\,\beta
+		} else {
+		   putlabel 6 2\beta
+		}
+		set _i_=_i_+1
+		
+		if ($?JEANS_QQQ==0) {
+		   relocate $($_X0_) $($_Y0_-_i_*$_dY_)
+		   ctype black ltype 0
+		   draw $($_X0_+$_dX_) $($_Y0_-_i_*$_dY_)
+		   ltype 0
+		   relocate $($_X0_+1.3*$_dX_) $($_Y0_-_i_*$_dY_)
+		   putlabel 6 sum
+		   set _i_=_i_+1
+		}
+		
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+
+		re_init_graph
+deriv_log 2	
+		# set _prov_ local
+		set _lnx_sup_ local
+		set _lnx_inf_ local
+		set _lny_sup_ local
+		set _lny_inf_ local
+		set _lnx_sup_=ln($1[do(1,dimen($1)-1)])
+		set _lny_sup_=ln($2[do(1,dimen($1)-1)])
+		set _lnx_inf_=ln($1[do(0,dimen($1)-2)])
+		set _lny_inf_=ln($2[do(0,dimen($1)-2)])
+		set _prov_=(_lny_sup_-_lny_inf_)/(_lnx_sup_-_lnx_inf_)
+		set $0=< $(_prov_[0]) > concat _prov_
+		delete _prov_

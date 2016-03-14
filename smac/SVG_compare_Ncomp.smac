@@ -1,0 +1,217 @@
+#| macros :
+#| --------
+#|   compare_Ncomp_RayLag compare_Ncomp_RayLag_b compare_Ncomp_MavLag
+#|   init_compare_Ncomp_ init_compare_Ncomp_b_
+#|   put_legends_compare_Ncomp_
+#|
+compare_Ncomp_RayLag
+		init_compare_Ncomp_
+		undef ABS_LOG
+		def FIGER_LIMITES
+		def LABELS_AT_START
+		def _SUPER_
+		set frac_lag_spedi={ 1e-5 3e-5 1e-4 3e-4 1e-3 3e-3 0.01 0.03 0.1 0.2 0.5 0.7 0.9 }
+		limits -0.000777265 0.0064262 -4.6 0.645
+		
+		set_plot_ray_lag_Ncomp_
+		do iModel=0,dimen(Names)-1 {
+		   !ln -sf $HOME/GAS_MODEL/spedi_runs/done/$(Names[$iModel])/star1.list.gz star1.list.gz
+		   ctype $(Ctypes[$iModel])
+		   ltype $(Ltypes[$iModel])
+		   def _SUPER_
+		   ray_lag_glob
+		}
+		ltype 0
+		ctype black
+		put_mass_frac_ray_lag_labels_
+
+		# Legends
+		put_legends_compare_Ncomp_
+		
+		undef FIGER_LIMITES
+		undef _SUPER_
+		re_init_graph
+
+compare_Ncomp_RayLag_b
+		init_compare_Ncomp_b_
+		def ABS_LOG
+		def RHOC_AS_ABS
+		def FIGER_LIMITES
+		def LABELS_AT_START
+		def _SUPER_
+		set frac_lag_spedi={ 3e-5 1e-4 3e-4 1e-3 3e-3 0.01 0.03 0.1 0.3 }
+		limits -1.25 12 -5.3 0
+		
+		set_plot_ray_lag_Ncomp_
+		do iModel=0,dimen(Names)-1 {
+		   !ln -sf $HOME/GAS_MODEL/spedi_runs/done/$(Names[$iModel])/star1.list.gz star1.list.gz
+		   ctype $(Ctypes[$iModel])
+		   ltype $(Ltypes[$iModel])
+		   def _SUPER_
+		   ray_lag_glob
+		}
+		ltype 0
+		ctype black
+		put_mass_frac_ray_lag_labels_
+
+		# Legends
+		put_legends_compare_Ncomp_
+		
+		undef FIGER_LIMITES
+		undef _SUPER_
+		re_init_graph
+		
+compare_Ncomp_RayLag_c
+		init_compare_Ncomp_c_
+		def ABS_LOG
+		def RHOC_AS_ABS
+		def FIGER_LIMITES
+		undef LABELS_AT_START
+		def _SUPER_
+		set frac_lag_spedi={ 1e-4 2e-4 3e-4 4e-4 5e-4 6e-4 7e-4 8e-4 9e-4 1e-3 2e-3 3e-3 5e-3 0.01 0.02  0.03 0.05 0.1 0.15 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 0.95 }
+		limits -0.686082 17.0763 -4.2558 0.73286
+		
+		set_plot_ray_lag_Ncomp_
+		do iModel=0,dimen(Names)-1 {
+		   !ln -sf $HOME/GAS_MODEL/spedi_runs/done/$(Names[$iModel])/star1.list.gz star1.list.gz
+		   ctype $(Ctypes[$iModel])
+		   ltype $(Ltypes[$iModel])
+		   def _SUPER_
+		   ray_lag_glob
+		}
+		ltype 0
+		ctype black
+		put_mass_frac_ray_lag_labels_
+
+		# Legends
+		define Y0 0.35
+		put_legends_compare_Ncomp_
+		
+		undef FIGER_LIMITES
+		undef _SUPER_
+		re_init_graph
+		
+compare_Ncomp_MavLag
+		init_compare_Ncomp_
+		undef ABS_LOG
+		def FIGER_LIMITES
+		undef LABELS_AT_START
+		def _SUPER_
+		def NO_COLORS
+		delete frac_lag_spedi
+		set frac_lag_spedi={1e-3 1e-2 3e-2 0.1 0.3 1}
+		limits -3e-4 0.007 -0.267694 2.11042
+		
+		set_plot_mav_lag_
+		do iModel=0,dimen(Names)-1 {
+		   !ln -sf $HOME/GAS_MODEL/spedi_runs/done/$(Names[$iModel])/star1.list.gz star1.list.gz
+		   ctype $(Ctypes[$iModel])
+		   ltype $(Ltypes[$iModel])
+		   def _SUPER_
+		   mav_lag
+		   if ($iModel==0) {
+		      ctype black
+		      ltype 0
+		      put_mass_frac_mav_lag_labels_
+		   }
+		}
+		ltype 0
+		ctype black
+		#put_mass_frac_mav_lag_labels_
+
+		# Legends
+		define Y0 0.95
+		put_legends_compare_Ncomp_
+		undef Y0
+		
+		undef FIGER_LIMITES
+		undef _SUPER_
+		re_init_graph
+		
+init_compare_Ncomp_
+		set Names = < \
+		    PlummerSlptr0p2to120_6comp_delta1p0  PlummerSlptr0p2to120_6comp_delta0p75  PlummerSlptr0p2to120_6comp_delta0p5 \
+		    PlummerSalpeter0p2to120_12comp \
+		    PlummerSlptr0p2to120_20comp_delta1p0 PlummerSlptr0p2to120_20comp_delta0p75 PlummerSlptr0p2to120_20comp_delta0p5 \
+		    PlummerSalpeter0p2to120_25comp PlummerSalpeter0p2to120_25comp_400 \
+		    PlummerSalpeter0p2to120_50comp \
+		>
+		set Labels = < \
+		    "N_{comp}=\,6 \delta=\,1.0" "N_{comp}=\,6 \delta=\,0.75" "N_{comp}=\,6 \delta=\,0.5" \
+		    "N_{comp}=\,12" \
+		    "N_{comp}=\,20 \delta=\,1.0" "N_{comp}=\,20 \delta=\,0.75" "N_{comp}=\,20 \delta=\,0.5" \
+		    "N_{comp}=\,25 N_{sh}=\,200" "N_{comp}=\,25 N_{sh}=\,400" \
+		    "N_{comp}=\,50" \
+		>
+		set Ctypes = < \
+		    green green green \
+		    cyan \
+		    blue blue blue \
+		    magenta magenta \
+		    red \
+		>
+		set Ltypes = < \
+		    0 2 3 \
+		    0 \
+		    0 2 3 \
+		    0 4 \
+		    0 \
+		>
+
+init_compare_Ncomp_b_
+		set Names = < \
+		    PlummerSlptr0p2to120_6comp_delta1p0 PlummerSlptr0p2to120_6comp_delta0p75 PlummerSlptr0p2to120_6comp_delta0p5  PlummerSlptr0p2to120_6comp_delta0p25 \
+		>
+		set Labels = < \
+		    "\delta=\,1.0" "\delta=\,0.75" "\delta=\,0.5" "\delta=\,0.25" \
+		    "N_{comp}=\,50" \
+		>
+		set Ctypes = < \
+		    green cyan blue magenta \
+		    red \
+		>
+		set Ltypes = < \
+		    0 0 0 0 0 \
+		    2 \
+		>
+
+init_compare_Ncomp_c_
+		set Names = < \
+		    PlummerSalpeter0p2to120_25comp PlummerSalpeter0p2to120_25comp_400  \
+		    PlummerSalpeter0p2to120_50comp \
+		>
+		set Labels = < \
+		    "N_{comp}=\,25 N_{sh}=\,200" "N_{comp}=\,25 N_{sh}=\,400" \
+		    "N_{comp}=\,50" \
+		>
+		set Ctypes = < \
+		    green cyan blue magenta \
+		    red \
+		>
+		set Ltypes = < \
+		    0 0 0 0 0 \
+		    2 \
+		>
+
+put_legends_compare_Ncomp_
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		limits 0 1 0 1
+		expand 0.95
+		if ($?X0==0) { define _X0_ 0.07  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.45  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.04  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.04  } else { define _dY_ $dY }
+		do iModel=0,dimen(Names)-1 {
+		   ctype $(Ctypes[$iModel])
+		   relocate $($_X0_) $($_Y0_-$iModel*$_dY_)
+		   ltype $(Ltypes[$iModel])
+		   draw $($_X0_+2*$_dX_) $($_Y0_-$iModel*$_dY_)
+		   ltype 0
+		   relocate $($_X0_+2.3*$_dX_) $($_Y0_-$iModel*$_dY_)
+		   putlabel 6 $(Labels[$iModel])
+		}
+		ctype black  
+		limits $fx1_ $fx2_ $fy1_ $fy2_

@@ -1,0 +1,42 @@
+************** Plummer 1e7 stars (1Msun), Mbh=500Msun, Rp=1pc 
+ 2B-BINARY   F. 3B-BINARY   F. 3B-BIN STOC F. TRIPLE INT  F.
+ PRIM BIN    F. TIME I-POL  F. PR T-TLARGE T. ISOTR. EQUI F.
+ NO E-FLUX   F. READ I-MOD  F. TIDAL MASSL F. RX-TERMS    F.
+ ISO-STAR    F. LOSS CONE   T. NO RELAX T. F. INIBLH      T.
+ NO U-TERMS  F. ENHANCE LC  F. BLACK HOLE  T. GRAV. RAD.  F.
+ STEVOL      F. TWO FLUXES  F. RESTR PRINT T. 4B-BIN STOC F.
+ DIAGNOSTIC  F. MOVE GRID   F. TIDAL CUT   F. QUAD INT    F.
+ ESC APO CR  F. FLOW OUT    F. ADIAB WALL  T.             F.
+             F.             F.             F.             F.
+             F.             F.             F.             F.
+  MODA=   1  MODM=   20  MODF=   20 MODFC=   20 MODFI=   20 MAX=  100000 NPR= 10
+ NCOMP=   1    NJ=  200  NRIT=   10  NCOL= 1000 NWRIT=    1 ITIME=     1 IUNIT=1
+ TSTEP= 1.00+000 STEU1= 9.50-002 STEU2= 9.50-002 STEU3= 9.50-002 NRAND=  374585
+ ITMIN=  2 ITMAX= 30 EPS= 1.00-006 FHEN= 1.00+000 FACT= 1.25+000
+ CORR= 1.00-002 FAA= 1.00-001 FNACH= 1.00-003 IPR1=  0 IPR2=  0 ICTR=  0
+    CG= 1.00000+000     E= 2.50000-001     M= 1.00000+000
+   XLA= 4.97700-001  XTAN= 0.10000-010  XBIN= 0.00000+001 XIMPL= 0.55000+000
+XMHOLE= 5.00000+002 ELLIP= 0.00000-002 THETA= 1.57080+000
+  XESC= 1.00000+000 TBINI= 0.00000+000  AEXP= 0.00000+000 XLFAC= 0.00000+000
+  XTEQ= 1.00000+000 GAMMA= 0.11000+000XBIN2B= 0.00000+000  FTRX= 5.00000+001
+  ASPI= 2.10000+001  AHEG= 3.00000+001 BINFR= 1.00000-001 EBINI= 0.00000-002
+  EMIN= 2.34000-002  EMAX= 0.38800+000 ALPHA= 0.40000+000  BETA= 1.00000+000
+ TUPIN= 1.00000+020 SMBIN= 1.00000+000 XXESC= 2.50000+000    CS= 0.00000+000
+    CS= 0.00000+000    CS= 0.00000+000    CS= 0.00000+000    CS= 0.00000+000
+ 1   MTOT= 1.00000+007 MIND= 1.00000+000  MREM= 0.60000+000 TAU= 1.00000+020 
+     RTOT= 2.23000+002 RIND= 1.00000+000  TIND= 1.00000+000 RSC= 0.28000+000
+      EXP= 0.00000+000 UINI=-1.00000-005 XBIND= 1.00000+000 NOL=  25
+      LEQ=  T  T  T  T  T  T
+XMTOTA= 1.00000+007 XIMF= 2.35000+000 LEQ=  T
+813,2,44,813,2,45,814,2,44,814,2,45,814,3,44,814,3,45,0,0
+
+#All in Msun and pc
+#NWRIT ~how many shells saved in .list
+#MREM final mass of individual * with stellar evol
+#NOL 25 = BH with plummer model for *
+#NOL 5 = "" without BH
+#NOL = 10-3 King model concentration -3
+#RSC = scale radius for the plummer model (Plummer radius)???
+#STEUx and NJ --> If you want to change the resolution of NJ (x FACTOR), 
+#    be aware that you have to multiply STEUx (x=1,2,3) by FACTOR^-1 
+#    to keep the same innermost radius (only!!) For instance: NJ=800 --> STEUx / 4

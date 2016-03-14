@@ -1,0 +1,302 @@
+C****MAIN PROGRAM GETDATA*************
+      IMPLICIT REAL*8(A-H,O-Z),INTEGER(I-K,M-N),LOGICAL(L)
+      INCLUDE 'compar.f'
+      INCLUDE 'plotsplo.f'
+C
+          C13=1.D0/3.D0
+          C23=2.D0*C13
+          C53=5.D0*C13
+          C56=C53/2.D0
+          C12=5.D-1
+          C32=3.D0*C12
+          PI4=4.D0*PI
+          RHOC=SUNM/PC**3
+          CLFAC=CLICHT/2.997925D5
+          CLFAC2=CLFAC*CLFAC
+          PRINT*,' THIS VERSION HAS NJMAX=',NJMAX,' NCOMP=',NCOMP,
+     * ' IVDIM=',IVDIM
+C
+      INCLUDE 'frm1.f'
+      INCLUDE 'frm2.f'
+C**INCLUDE FORMATS FOR READ AND WRITE ON UNIT 10***********
+      PRINT*,' ENTER FILE IDENTIFIER INTEGER I2:'
+      READ(5,*)IPLSP
+      IF(IPLSP.LT.0)THEN
+      LTEST=.TRUE.
+      PRINT*,' TEST OF FILE CONTENT'
+      GOTO 511
+      END IF
+      IF(IPLSP.LT.10)THEN
+      WRITE(ZCMD,402)IPLSP
+ 402  FORMAT('plsp0',I1,'.cmd ')
+      ELSE 
+       IF(IPLSP.LT.100)THEN
+      WRITE(ZCMD,403)IPLSP
+ 403  FORMAT('plsp',I2,'.cmd ')
+       ELSE
+      WRITE(ZCMD,404)IPLSP
+ 404  FORMAT('plsp',I3,'.cmd')
+       END IF
+      END IF
+      PRINT*,' Mongo Command File to be opened:'
+      PRINT*,ZCMD
+C
+      OPEN(11,FILE=ZCMD,STATUS='UNKNOWN',IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZCMD,' Unit 11'
+ 511  CONTINUE
+C
+      PRINT*,' Enter Number of SPLO.PLOT File:'
+      READ(5,*)IDNUM
+      IF(IDNUM.EQ.0)WRITE(ZPLDAT,49)
+      IF((IDNUM.GT.0).AND.(IDNUM.LT.10))WRITE(ZPLDAT,50)IDNUM
+      IF((IDNUM.GT.9).AND.(IDNUM.LT.100))WRITE(ZPLDAT,51)IDNUM
+      IF(IDNUM.GT.99)WRITE(ZPLDAT,52)IDNUM
+ 49   FORMAT('splo.plot',71X)
+ 50   FORMAT('splo.plot',I1,70X)
+ 51   FORMAT('splo.plot',I2,69X)
+ 52   FORMAT('splo.plot',I3,68X)
+C
+      OPEN(55,FILE=ZPLDAT,STATUS='UNKNOWN',IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZPLDAT
+C
+      PRINT*,' Name of Data File (presently exactly 5 chars, no ext.):'
+      READ(5,'(A5)')ZCWR
+C
+      WRITE(ZCWRIT,53)ZCWR
+      WRITE(ZINFO,54)ZCWR
+ 53   FORMAT(A5,'.enccwr')
+ 54   FORMAT(A5,'.encinf')
+C
+      PRINT*,' DATA INPUT FROM: '
+      PRINT*,ZCWRIT
+      PRINT*,ZINFO
+C
+      OPEN(20,FILE=ZCWRIT,FORM='FORMATTED',STATUS='UNKNOWN',
+     *     IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZCWRIT,' IERR=',IERR
+      OPEN(21,FILE=ZINFO,FORM='FORMATTED',STATUS='UNKNOWN',
+     *     IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZINFO,' IERR=',IERR
+C
+      ICWR=0
+      IMGO=1
+      READ(55,*)IMODA
+      PRINT*,' IMODA=',IMODA,' IMGO=',IMGO
+C
+      IF(IMODA.LT.0)THEN
+C
+      READ(55,*)IMSTA,IMFIN,IMINT
+      PRINT*,' Models from MODA=',IMSTA,' to ',IMFIN,' to be read '
+      PRINT*,' Intervals = ',IMINT
+      IDIFF=(IMFIN-IMSTA)/IMINT
+      IF(IDIFF.GT.499)IMFIN=IMSTA+499*IMINT
+      IF(IDIFF.GT.499)PRINT*,' MAX Number of Models=500, corrected! '
+      I=0
+      DO 345 IM=IMSTA,IMFIN,IMINT
+      I=I+1
+      MOCNT(I)=IM
+ 345  CONTINUE
+      IMODA=I
+      PRINT*,' IMODA=',IMODA
+C
+      ELSE
+C
+      IF(IMODA.GT.500)IMODA=500
+      IF(IMODA.GT.500)PRINT*,' MAX IMODA=500, IMODA CORRECTED'
+      READ(55,*)(MOCNT(I),I=1,IMODA)
+C
+      END IF
+C
+      PRINT*,' MOCNT=',(MOCNT(I),I=1,IMODA)
+      READ(55,*)ZWORK(1)
+      READ(55,*)ZLINE(1)
+      READ(55,*)ZLINE(2)
+      READ(55,*)XMINX,XMAXX,YMIN,YMAX
+      PRINT*,' Plot Title: ',ZWORK(1)
+      PRINT*,' X-Axis Label: ',ZLINE(1)
+      PRINT*,' Y-Axis Label: ',ZLINE(2)
+      PRINT*,' Preliminary Limits x:',XMINX,XMAXX,' y:',YMIN,YMAX
+      READ(55,555)LALF,LT4,LDEC,LPR,LCL
+      READ(55,556)NPLOT,NTIME,NMOMIN,NMOMAX,NINT,NCHR,NASCII
+ 555  FORMAT(6X,L3,5X,L3,6X,L3,5X,L3,5X,L3)
+ 556  FORMAT(7X,I3,7X,I3,8X,I4,8X,I4,6X,I1,6X,I2,8X,I3)
+ 601  FORMAT(' NPLOT=',I3,' NTIME=',I3,
+     *       ' NMOMIN=',I4,' NMOMAX=',I4,' NINT=',I1,
+     *       ' NCHR=',I2,' NASCII=',I3)
+ 602  FORMAT(' LALF=',L3,' LT4=',L3,' LDEC=',L3,' LPR=',L3,' LCL=',L3)
+      WRITE(6,602)LALF,LT4,LDEC,LPR,LCL
+      WRITE(6,601)NPLOT,NTIME,NMOMIN,NMOMAX,NINT,NCHR,NASCII
+      IF(NINT.LT.1)NINT=1
+C*********READ WISHED DATA FOR EXTREMA CALCULATION*************
+      IF(NPLOT.EQ.0)IMODA=0
+      IMAX=NPLOT
+      IF(NTIME.GT.0)IMAX=NPLOT+NTIME
+C
+      DO 100 I=1,IMAX
+      IF(I.GT.1)IV=JS
+      JS=6*(I-1)
+      IT=4*(I-1)
+      IU=5*(I-1)
+      READ(55,150,END=789)IWORK(JS+1),(LWORK(IT+K),K=1,4),
+     *    (IWORK(JS+K),K=2,6)
+      READ(55,1500,END=789)(XWORK(IT+IQ),IQ=1,4),LSMO
+      READ(55,1505,END=789)(UNIT(IU+IQ),IQ=1,5)
+      WRITE(6,150)IWORK(JS+1),(LWORK(IT+K),K=1,4),(IWORK(JS+K),K=2,6)
+      WRITE(6,1500)(XWORK(IT+IQ),IQ=1,4),LSMO
+      WRITE(6,1505)(UNIT(IU+IQ),IQ=1,5)
+1505  FORMAT(' UN1-5=',1P,5D9.2)
+ 150  FORMAT(' IW=',I1,' LEG=',L2,' LT5=',L2,' KUPA=',L2,' SCALE=',
+     * L2,' N1=',I4,' N2=',I4,' N3=',I4,' N4=',I4,' N5=',I4)
+ 1500 FORMAT(' XLEG=',1P,D9.2,' YLEG=',D9.2,' XT5=',D9.2,' YT5=',D9.2,
+     *       ' LSMO=',L3)
+      LERR=.FALSE.
+      DO 227 K=1,5
+      LLOG(JS+K)=.FALSE.
+      IF(IABS(IWORK(JS+K+1)).GE.1000)THEN
+      LLOG(JS+K)=.TRUE.
+      IF(IWORK(JS+K+1).GT.0)IWORK(JS+K+1)=IWORK(JS+K+1)-1000
+      IF(IWORK(JS+K+1).LT.0)IWORK(JS+K+1)=IWORK(JS+K+1)+1000
+      END IF
+ 227  CONTINUE
+      LERR=LERR.OR.(IWORK(JS+2).EQ.-2)!.OR.(IWORK(JS+3).EQ.-2)
+      IF(LERR)THEN
+      PRINT*,' PLEASE IMPROVE NI PARAMETER OF IPLOT=',I
+      STOP
+      END IF
+      JSOLD=JS
+      ITOLD=IT
+      IUOLD=IU
+ 100  CONTINUE
+C*************TEST OF CONSISTENT IW-PARAMETERS***************
+      LERR=.FALSE.
+      ILK=1
+ 876  CONTINUE
+      JS=6*(ILK-1)
+      IF(IWORK(JS+1).EQ.1)ILK=ILK+1
+      IF(IWORK(JS+1).EQ.2)THEN
+      IF((ILK.GT.IMAX-1).OR.(IWORK(JS+7).NE.2))LERR=.TRUE.
+      ILK=ILK+2
+      IF(LERR)PRINT*,' IW IS IN ERROR, NUMBER OF PLOT=',I
+      IF(LERR)STOP
+      END IF
+      IF(IWORK(JS+1).EQ.4)THEN
+      IF((ILK.GT.IMAX-3).OR.(IWORK(JS+7).NE.4).OR.
+     * (IWORK(JS+13).NE.4).OR.(IWORK(JS+19).NE.4))LERR=.TRUE.
+      ILK=ILK+4
+      IF(LERR)PRINT*,' IW IS IN ERROR, NUMBER OF PLOT=',I
+      IF(LERR)STOP
+      END IF
+      IF(ILK.LE.IMAX)GOTO 876
+      NMAX=IMODA
+      IF(NTIME.GT.0)NMAX=IMODA+1
+C
+      ISET=0
+ 1999 ISET=ISET+1
+C
+      PRINT*,' NMAX=',NMAX,' ISET=',ISET
+      DO 300 ILAUF=1,NMAX
+C********Read Time-Dependent Information************************
+      IF((NTIME.GT.0).AND.(ILAUF.EQ.NMAX))CALL DECODE(IJK,ISET,ILAUF)
+C
+      IF(ISET.LT.0)THEN
+      PRINT*,' Probable End of Data reached in DECODE '
+      GOTO 1998
+      END IF
+C
+      CALL PSTART(1,ISET,ILAUF,ICWR)
+      CALL EXCOMP(ISET,ILAUF)
+ 300  CONTINUE
+      NP=NJ-2
+C
+      IF(IMGO.EQ.1.AND.ISET.EQ.1)THEN
+C
+      WRITE(11,*)'ERASE'
+      WRITE(11,*)'LTYPE 0'
+      WRITE(11,*)'EXPAND 1.0'
+      WRITE(11,*)'TITLE ',ZWORK(1)
+C
+      END IF
+C
+      IF(ISET.EQ.1)REWIND 20
+*
+      DO 102 ILAUF=1,NMAX
+C
+      IF(ISET.EQ.1)THEN
+      IFILE=ILAUF-1+IPLSP
+      IF(IFILE.LT.10)THEN
+      WRITE(ZWRIT,302)IFILE
+ 302  FORMAT('plsp0',I1,'.dat ')
+      ELSE
+       IF(IPLSP.LT.100)THEN
+      WRITE(ZWRIT,303)IFILE
+ 303  FORMAT('plsp',I2,'.dat ')
+       ELSE
+      WRITE(ZWRIT,304)IFILE
+ 304  FORMAT('plsp',I3,'.dat')
+       END IF
+      END IF
+      PRINT*,' ILAUF=',ILAUF
+      IF((IMGO.EQ.1.AND.ILAUF.EQ.1).OR.IMGO.NE.1)THEN
+      PRINT*,' Device Independent Plot Data File to be created:'
+      PRINT*,ZWRIT
+      END IF
+*       For Mongo Plots one data output file is enough
+      IF(IMGO.EQ.1.AND.ILAUF.EQ.1)THEN
+      OPEN(50,FILE=ZWRIT,STATUS='UNKNOWN',IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZWRIT,' Unit ',
+     *     50
+      END IF
+*
+      IF(IMGO.NE.1)THEN
+      OPEN(50+ILAUF,FILE=ZWRIT,STATUS='UNKNOWN',IOSTAT=IERR)
+      IF(IERR.NE.0)PRINT*,' Error in OPEN File ',ZWRIT,' Unit ',
+     *     50+ILAUF
+      END IF
+C
+      IF(ILAUF.EQ.1)WRITE(11,*)'DATA ',ZWRIT
+C
+      END IF
+C
+      CALL PSTART(2,ISET,ILAUF,ICWR)
+      IF(IMGO.NE.ILAUF.AND.NTIME.EQ.0)CLOSE(50+ILAUF)
+ 102  CONTINUE
+C
+      IF(NTIME.GT.0)GOTO 1999
+C
+ 1998 CONTINUE
+      CLOSE(50)
+      CLOSE(51)
+      CLOSE(11)
+      STOP
+C
+ 789  PRINT*,' End Of File in INPUT DATA Unit 55'
+      STOP
+C
+ 999  PRINT*,' Error in Read from INFO in GETDATA'
+      STOP
+      END
+C*****************************************************
+        BLOCK DATA
+      IMPLICIT REAL*8 (A-H,O-Z),INTEGER*4(I-N)
+      INCLUDE 'compar.f'
+C
+C     constants in cgs units *************************
+      DATA HMASS/1.6726D-24/
+      DATA PI/3.141592654D0/
+      DATA SUNR/6.96D10/
+      DATA PI43/4.188790203D0/
+      DATA XMK/1.212162D-8/
+      DATA HWIRK/6.626196D-27/
+      DATA CLICHT/2.997925D10/
+      DATA XMUE/1.505D0/
+C IN CASE OF DIFFERENT UNIT SYSTEM:
+C PROTM = UNIT OF COOLING FACTOR LAMBDA/CGS
+      DATA GRAV/6.6732D-8/
+      DATA PC/3.0857D18/
+      DATA SUNM/1.989D33/
+      DATA SUNL/3.82D33/
+      DATA YEAR/3.1558D7/
+C PLANCK = SIGSBO *CLICHT *T**4/4PI
+      DATA SIGSBO/7.565232619D-15/
+C
+       END

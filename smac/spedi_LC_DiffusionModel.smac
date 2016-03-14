@@ -1,0 +1,340 @@
+
+##################################################################
+#	spedi_LC_DiffusionModel.smac for dummies		 #
+#	========================================		 #
+#								 #
+# - star1.list file must be in workin' directory, man!  	 #
+# - sm								 #
+# - load2 spedi_tutti.smac 					 #	
+# - spedi_tutti
+# - init_LCProfiles xxx yyy where xxx is the number of stars     #
+#   (Nstar) and yyy the gamma for the Coulomb logarithm		 #
+# - Plot_LCProfiles x, x being the profile number		 #
+#								 #
+#  and that's all! if you're not capable to do this on your own, #
+#  better go have a beer and forget about all, for Pete's sake!  #
+#								 #	
+##################################################################
+
+
+init_LCProfiles 2 # star1.list file must be in workin' directory, man!
+                  # parameter 1 is the number of stars (Nstar) and 2 the gamma for the Coulomb logarithm (gamma_Coulomb)
+		if ($?2==0) {
+			echo "!!! init_LCProfiles needs 2 parameters: Nstar and gamma_Coulomb !!!"
+			return
+		} 
+		set Nstar=$1
+                set gamma_Coulomb=$2	
+		delete Nfiles
+		get_spedi_units
+		get_spedi_MF
+
+                # Remove data file(s) if there is any
+                ! rm DiffusionModelQuantities_*.asc
+
+		# create DiffusionModelQuantities_*.asc files
+		! gunzip --force --to-stdout star1.list(|.gz) | $spedi_util_path/getDiffusionModelQuantitiesAndGoHaveACoffeeAfterwards.sh
+
+		# get number of DiffusionModelQuantities_*.asc files
+		! ls DiffusionModelQuantities_*.asc | wc -w > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Nfiles 1 }
+		! rm _TMP$!pid_script_sm""_
+		echo "> Felicitations, vous avez cree $!(Nfiles) fichiers (le premier a le numero 0) !"
+		if ($?T_RH==0) { 
+			echo "!!! xavalin, tas tonto o que? Gimme T_RH right now (0.093 for plummer, just in case you didn't know it, ass)"
+			echo "    then, re-run the fuckin' init_LCProfiles"
+			return
+		} else {
+			define Trh_Nbody $($T_RH*Nstar/ln(gamma_Coulomb*Nstar))
+		}
+
+get_CritRadii 2 # read info about diffusion model to compute R_crit(t)
+                # parameter 1 is the number of stars (Nstar) and 2 the gamma for the Coulomb logarithm (gamma_Coulomb)
+		init_LCProfiles $1 $2 
+		set dimen(R_Rcrit)=$(Nfiles)
+		set dimen(T_Rcrit)=$(Nfiles)
+		do iFile=0,Nfiles-1 {
+		   lit_fort DiffusionModelQuantities_$iFile.asc
+		   compute_CritRad
+		   set R_Rcrit[$iFile]=Rcrit
+		   ! grep '^\#  *Time =' < DiffusionModelQuantities_$iFile.asc | sed 's/\#  *Time = *//; s/ *N-body units *\$//' > _TMP$!pid_script_sm""_
+		   data _TMP$!pid_script_sm""_
+		   read { Time 1 }
+		   ! rm _TMP$!pid_script_sm""_
+		   set T_Rcrit[$iFile]=Time
+		}
+
+Plot_LCProfiles 1 # $1: number of DiffusionModelQuantities_*.asc file (from 0 to Nfiles-1)
+                define iFile $1
+		if ($iFile>Nfiles-1) {
+			echo "!!! Y'a que "$(Nfiles)" fichiers a disposition, mec !!!"
+			return
+		}
+		lit_fort DiffusionModelQuantities_$iFile.asc
+
+		init_graph
+		location 8000 26000 2500 29000
+		expand 0.9
+		lweight 2
+
+		if ($?R_max==0) {
+		   define R_max_ 1e30
+		} else {
+		   define R_max_ $R_max
+		}
+		if ($?R_min==0) {
+		   define R_min_ 1e-30
+		} else {
+		   define R_min_ $R_min
+		}
+		if ($?X_MIN==1) { define R_min_ $X_MIN }
+		if ($?X_MAX==1) { define R_max_ $X_MAX }
+
+		set _i_=0,dimen(Radius)-1
+		set _i_=_i_ if (Radius>=$R_min_ && Radius<=$R_max_)
+		set _x_=lg(Radius[_i_])
+
+		# 3-panel diagram
+
+		# top panel: filling degree k
+		window 1 -3 1 3
+		set _y_=lg(K[_i_])
+		limits _x_ _y_
+		if ($?X_MIN==1) { limits $(lg($X_MIN)) $fx2 $fy1 $fy2 }
+		if ($?X_MAX==1) { limits $fx1 $(lg($X_MAX)) $fy1 $fy2 }
+		limits $fx1 $fx2 $fy1 $($fy2+0.04*($fy2-$fy1))
+		ticksize 0 0 0 0
+		box 3 2 4 0
+		ylabel log_{10}\,{\it K}
+                define fx1_ $fx1
+                define fx2_ $fx2
+		limits $($fx1+lg(unit_r_pc)) $($fx2+lg(unit_r_pc)) $fy1 $fy2
+		box 4 4 1 4
+		limits $fx1_ $fx2_ $fy1 $fy2
+		relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.16*($gy2-$gy1)) )
+		putlabel 5 log_{10}\,{\it R} [pc]
+		connect _x_ _y_
+
+		# middle panel: filling degree k
+		window 1 -3 1 2
+		set _y1_=lg(TH_D[_i_])
+		set _y2_=lg(TH_LC[_i_])
+		limits $fx1_ $fx2_ (_y1_ concat _y2_)
+		limits $fx1 $fx2 $fy1 $($fy2+0.04*($fy2-$fy1))
+		ticksize 0 0 0 0
+		box 3 2 3 0
+		ylabel log_{10}\,\theta_{lc,D}
+		ltype 4
+		connect _x_ _y1_
+		ltype 0
+		connect _x_ _y2_
+		ltype 0
+
+		# Put legends for the two curves
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.60  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.09  } else { define _dY_ $dY }
+		relocate $($_X0_) $($_Y0_)
+		ltype 0
+		draw $($_X0_+$_dX_) $($_Y0_)
+		relocate $($_X0_+1.1*$_dX_) $($_Y0_)
+		ltype 0
+		putlabel 6 \theta_{lc}
+		relocate $($_X0_) $($_Y0_-$_dY_)
+		ltype 4
+		draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		relocate $($_X0_+1.1*$_dX_) $($_Y0_-$_dY_)
+		ltype 0
+		putlabel 6 \theta_{D}
+		
+
+		# bottom panel: differential accretion rate
+		window 1 -3 1 1
+		set _y_=ln(10)+lg(MDOTLC[_i_])
+		limits $fx1_ $fx2_ _y_
+		limits $fx1 $fx2 $fy1 $($fy2+0.04*($fy2-$fy1))
+                define fy1_ $fy1
+                define fy2_ $fy2
+		limits $fx1_ $fx2_ $($fy1+lg($Trh_Nbody)) $($fy2+lg($Trh_Nbody))
+		ticksize 0 0 0 0
+		box 1 2 3 4
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		xlabel log_{10}\,{\it R} [{\it N}-body]
+		ylabel log_{10}\,\dot{{\it M}|}_{\it R} [{\it M}_{clust}{\-1{(0)}}/{\it T}_{rh}{\-1{(0)}}]
+		limits $fx1_ $fx2_ $($fy1+lg(unit_m_msun/unit_t_yr)) $($fy2+lg(unit_m_msun/unit_t_yr))
+		box 4 4 4 2
+		relocate ( $($gx2+0.14*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 log_{10}\,\dot{{\it M}|}_{\it R} [{\it M}_\odot\,yr^{-1}]
+		angle 0
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+		connect _x_ _y_
+
+		# Indicate critical radius
+		compute_CritRad
+		if (Rcrit>0) {
+			window 1 1 1 1
+			limits $fx1_ $fx2_ 0 1
+			relocate $(lg(Rcrit)) 0
+			ltype 1
+			draw $(lg(Rcrit)) 1
+			ltype 0
+		}
+		limits $fx1_ $fx2_ $fy1_ $fy2_
+
+		# Indicate time
+		! grep '^\#  *Time =' < DiffusionModelQuantities_$iFile.asc | sed 's/\#  *Time = *//; s/ *N-body units *\$//' > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { Time 1 }
+		expand 0.9	
+		#angle 90
+		#relocate ( $($gx2+0.18*($gx2-$gx1)) $(0.3*$gy1+0.7*$gy2) )
+		relocate ( $(0.5*($gx2+$gx1)) $($gy2+0.1*($gy2-$gy1)) )
+                putlabel 5 \t{\it T}\,=\,$(sprintf('%4.2t',Time/$Trh_Nbody))\,{\it T}_{rh}{\-1{(0)}}\,=\,$(sprintf('%4.2t',Time*unit_t_yr))\,yrs	
+		angle 0
+		
+		re_init_graph
+
+compute_CritRad
+		set dTheta=lg(TH_LC)-lg(TH_D)
+		set i=0
+		while {i<dimen(TH_LC) && TH_LC[i]>TH_D[i]} {
+			set i=i+1
+		}
+		if (i<dimen(TH_LC)) {
+		        set R_=lg(Radius[i-1]) concat lg(Radius[i])
+		        set D_=dTheta[i-1] concat dTheta[i]
+		        sort { D_ R_ }
+		        set zero_={0}
+		        interp2 D_ R_ zero_ Rcrit
+		        set Rcrit=10**Rcrit
+			#set Rcrit=0.5*(Radius[i-1]+Radius[i])
+		} else {
+			set Rcrit=-1
+		}
+
+plot_Rh_Rcrit_vs_Time # First do: 
+		      # compute_infl_radius_mass
+		      # get_CritRadii $(Nstar) $(gamma_Coulomb)
+		      
+		set _i_ = 0,dimen(R_Rcrit)-1
+		set _i_ = _i_ if (R_Rcrit>0 && T_Rcrit>0)
+		set lRcrit_in_Nbody = lg(R_Rcrit[_i_])
+		set lT_Rcrit_in_Trh = lg(T_Rcrit[_i_]  / (Nstar*$T_RH/ln(gamma_Coulomb*Nstar))) # Time in units of T_RH
+
+		set _i_ = 0,dimen(R_h)-1
+		set _i_ = _i_ if (R_h>0 && time_R_h>0)
+		set lRinfl_in_Nbody = lg(R_h[_i_])
+		set lT_Rinfl_in_Trh = lg(time_R_h[_i_] / (Nstar*$T_RH/ln(gamma_Coulomb*Nstar))) # Time in units of T_RH
+
+		set _i_ = 0,dimen(R_1)-1
+		set _i_ = _i_ if (R_1>0 && time_R_1>0)
+		set lR1_in_Nbody = lg(R_1[_i_])
+		set lT_R1_in_Trh = lg(time_R_1[_i_] / (Nstar*$T_RH/ln(gamma_Coulomb*Nstar))) # Time in units of T_RH
+
+		define trh_yr $($unit_t_yr*Nstar*$T_RH/ln(gamma_Coulomb*Nstar))
+
+		if ($?_SUPER_==0) {
+		   init_graph
+		   expand 1.5
+		   lweight 2
+
+ 		   if ($?FIGER_LIMITES==0) {
+		      limits (lT_Rcrit_in_Trh concat lT_Rinfl_in_Trh) 1 -1 
+		      if ($?X_MIN==1) { 
+		         define _X_MIN_ $(lg($X_MIN))
+		      } else {
+		         define _X_MIN_ $fx1
+		      }
+		      if ($?X_MAX==1) { 
+		         define _X_MAX_ $(lg($X_MAX))
+		      } else {
+		         define _X_MAX_ $fx2
+		      }
+		      set _x_=(lT_Rcrit_in_Trh concat lT_Rinfl_in_Trh)
+		      set _y_=(lRcrit_in_Nbody concat lRinfl_in_Nbody)
+		      set _y_=_y_ if (_x_>=$_X_MIN_ && _x_<=$_X_MAX_)
+		      sort { _y_ }
+		      set y_min=_y_[0]
+		      set y_max=_y_[dimen(_y_)-1]
+		      limits $_X_MIN_ $_X_MAX_ ( y_min concat y_max ) 
+		   }
+		
+		   define fx1_ $fx1
+		   define fx2_ $fx2
+		   define fy1_ $fy1
+		   define fy2_ $fy2
+		   
+		   if ($?PHYS_UNITS==0) {
+		      location 5000 31000 5000 31000
+		   } else {
+		      location 5000 27500 5000 28000
+		   }
+		   ticksize -1 0 -1 0
+		   box 1 2 4 4
+		   xlabel Time in {\it T}_{rh}{\-1{(0)}}
+		   ylabel Radius in {\it N}-body units
+		   if ($?PHYS_UNITS==0) {
+		      box 4 4 0 0
+		   } else {
+		      limits $($fx1+lg($trh_yr)) $($fx2+lg($trh_yr)) $($fy1+lg($unit_r_pc)) $($fy2+lg($unit_r_pc)) 
+		      box 4 4 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Time in years
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Radius in pc
+		      angle 0
+		      limits $fx1_ $fx2_ $fy1_ $fy2_
+		   }       
+		}
+		
+		set _x_=$_X_MIN_,$_X_MAX_,($_X_MAX_-$_X_MIN_)/200
+		if ($?SHOW_R1==1) {
+		   ltype 1
+		   interp2 lT_R1_in_Trh lR1_in_Nbody _x_ _y_
+		   connect _x_ _y_
+		}
+		ltype 0
+		interp2 lT_Rinfl_in_Trh lRinfl_in_Nbody _x_ _y_
+		connect _x_ _y_
+		ltype 2
+		interp2 lT_Rcrit_in_Trh lRcrit_in_Nbody _x_ _y_
+		connect _x_ _y_
+		ltype 0
+
+		#if ($?_SUPER_==0) {
+		   # Put legends for the two curves
+		   expand 1.1
+		   limits 0 1 0 1
+		   if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.93  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.04  } else { define _dY_ $dY }
+		   relocate $($_X0_) $($_Y0_)
+		   ltype 0
+		   draw $($_X0_+$_dX_) $($_Y0_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_)
+		   ltype 0
+		   putlabel 6 Infl. radius ({\it M}_r={\s M}_{bh})
+		   relocate $($_X0_) $($_Y0_-$_dY_)
+		   ltype 2
+		   draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_-$_dY_)
+		   ltype 0
+		   putlabel 6 Crit. radius
+		   relocate $($_X0_) $($_Y0_-2*$_dY_)
+		   if ($?SHOW_R1==1) {
+		      ltype 1
+		      draw $($_X0_+$_dX_) $($_Y0_-2*$_dY_)
+		      relocate $($_X0_+1.4*$_dX_) $($_Y0_-2*$_dY_)
+		      ltype 0
+		      putlabel 6 1-star radius
+		   }
+		
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   re_init_graph
+		#}	

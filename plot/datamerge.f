@@ -1,0 +1,22 @@
+      IMPLICIT REAL*8(A-H,O-Z),INTEGER(I-K,M-N),LOGICAL(L)
+*
+      IREC=0
+ 1000 IREC=IREC+1
+*
+      READ(51,*,ERR=888,END=999)D1,D2,D3,D4,D5
+      READ(52,*,ERR=888,END=999)D6,D7,D8,D9,D10
+      READ(53,*,ERR=888,END=999)D11,D12,D13
+*
+      WRITE(54,100)D1,D2,D3,D4,D5,D7
+      WRITE(55,100)D6,D8,D9,D10,D12,D13
+ 100  FORMAT(1X,1P,6(D12.5,1X))
+*
+      GOTO 1000
+*
+ 999  CONTINUE
+      PRINT*,IREC-1,' Records read from file Units 51-53'
+      STOP
+ 888  CONTINUE
+      PRINT*,' Error in Read from file units 51-53'
+      STOP
+      END

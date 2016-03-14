@@ -1,0 +1,138 @@
+#| macros :
+#| --------
+#|   mav_lag read_mav_lag plot_mav_lag set_plot_mav_lag_
+#|   put_mass_frac_mav_lag_labels_ get_spedi_MF
+#|
+mav_lag
+		read_mav_lag
+		plot_mav_lag
+		
+read_mav_lag
+		# Read Gamma value for Coulomb Log
+		!gunzip --to-stdout --force star1.list(|.gz) | head -n 500 | grep GAMMA | sed 's/.*GAMMA= *//; s/XBIN2..*//' > _TMP$!pid_script_sm""_
+ 		data _TMP$!pid_script_sm""_
+		read { Gamma_spedi 1 }
+		!gunzip --to-stdout --force star1.list(|.gz) | head -n 500 | grep 'XNTOT=' | sed 's/..*XNTOT= *//' > _TMP$!pid_script_sm""_
+		read { Ntot_spedi 1 }
+		!gunzip --to-stdout --force star1.list(|.gz) | head -n 500 | grep '^ *TRH=' > _TMP$!pid_script_sm""_
+		read { TRH_spedi 2 TSPITZ_spedi 4 }
+ 		!rm _TMP$!pid_script_sm""_
+		define coef_time_spedi $(ln(Gamma_spedi*Ntot_spedi)/Ntot_spedi)
+		#define coef_time_spedi 1
+		#define coef_time_spedi $(1/TSPITZ_spedi)
+ 		
+		if (is_vector(frac_lag_spedi)==0) {
+		   set frac_lag_spedi_={ 0.001 0.01 0.03 0.10 0.25 0.5 1 }
+		} else {
+		   set frac_lag_spedi_=frac_lag_spedi
+		}
+		sort { frac_lag_spedi_ }
+		set frac_str=''
+		do i=0,dimen(frac_lag_spedi_)-1 {
+		   set frac_str=frac_str + ' $(frac_lag_spedi_[$i])'
+		}
+		!gunzip --to-stdout --force star1.list(|.gz) | $HOME/GAS_MODEL/util/CreateMavLagrFileFromListFile.pl $(frac_str)
+		lit_fort lagr_avrg_masses.asc
+		set Vectors=Noms_Var_Fich_Fort_
+		! rm lagr_avrg_masses.asc
+		set Time = $coef_time_spedi*Time
+		set y_min=1e30
+		set y_max=-1e30
+
+		set _i_=0
+		do i=1,dimen(Time)-1 {
+		   if (Time[$i]>Time[$i-1]) { set _i_ = _i_ concat < $i > }
+		}
+		do i=0,dimen(Vectors)-1 {
+		   set $(Vectors[$i]) = $(Vectors[$i])[_i_]
+		}
+		get_spedi_MF
+		
+plot_mav_lag
+		set y_min=1e30
+		set y_max=-1e30
+
+		if ($?ABS_LOG==0) {
+		   set x_diag=Time
+		} else {
+		   set _t_=Time
+		   do i=0,dimen(Vectors)-1 {
+		      set $(Vectors[$i]) = $(Vectors[$i]) if (_t_>0)
+		   }
+		   set x_diag=lg(Time)
+		}
+		if ($?ORD_LOG==0) {
+		   do i=1,dimen(Vectors)-1 {
+		      set y_diag_$i=$(Vectors[$i])
+		      vecminmax y_diag_$i _min_ _max_ 
+		      set y_min=(y_min>$_min_)?$_min_:y_min
+		      set y_max=(y_max<$_max_)?$_max_:y_max
+		   } 
+		} else {
+		   do i=1,dimen(Vectors)-1 {
+		      set y_diag_$i=lg($(Vectors[$i]))
+		      vecminmax y_diag_$i _min_ _max_ 
+		      set y_min=(y_min>$_min_)?$_min_:y_min
+		      set y_max=(y_max<$_max_)?$_max_:y_max
+		   }
+		}
+		
+		if ($?_SUPER_==0) {
+		   set_plot_mav_lag_
+		}
+
+		set couleurs={ red magenta green cyan blue black }
+		do i=1,dimen(Vectors)-1 {
+		   if ($?_SUPER_==0 && $?NO_COLORS==0) {
+		      ctype $(couleurs[($i-1)%dimen(couleurs)])
+		   }
+		   connect x_diag y_diag_$i
+		}
+
+		expand 1.001
+		if ($?_SUPER_==0) {
+		   put_mass_frac_mav_lag_labels_
+		}
+		
+		ctype black
+		ltype 0
+
+		re_init_graph
+		
+set_plot_mav_lag_
+		init_graph
+		location 5500 31000 3500 31000
+		expand 1.6
+		lweight 2
+		if ($?FIGER_LIMITES==0) {
+		   limits x_diag (y_min concat y_max)
+		   limits $fx1 $($fx2 +0.077*($fx2-$fx1)) $fy1 $fy2
+		}
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		
+		my_ticksize
+		box
+		xlabel Time in FP units
+		ylabel Average stellar mass in M_\odot
+
+		
+put_mass_frac_mav_lag_labels_
+		do i=1,dimen(Vectors)-1 {
+		   if ($?NO_COLORS==0) {
+		      ctype $(couleurs[($i-1)%dimen(couleurs)])
+		   }
+		   relocate $(x_diag[dimen(x_diag)-1]) $(y_diag_$i[dimen(x_diag)-1])
+		   putlabel 6 "\,$!(frac_lag_spedi_[$i-1])"
+		}
+		   
+get_spedi_MF # get the "mass function"
+		!gunzip --to-stdout --force star1.list(|.gz) | head -n 500 | grep '^ *I=' | sed 's/ *[a-zA-Z][a-zA-Z]*= */ /g' > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { icomp_spedi 1 Nst_comp_spedi 2 M_comp_spedi 3 m_comp_spedi 4 }
+		set fN_comp_spedi = Nst_comp_spedi/sum(Nst_comp_spedi)
+		set fM_comp_spedi = M_comp_spedi/sum(M_comp_spedi)
+		set m_averg_spedi = sum(fN_comp_spedi*m_comp_spedi)
+		!rm _TMP$!pid_script_sm""_

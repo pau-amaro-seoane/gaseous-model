@@ -1,0 +1,17 @@
+       IMPLICIT REAL*8(A-H,O-Z),INTEGER(I-K,M-N),LOGICAL(L)
+C
+       IREC=0
+ 1900  IREC=IREC+1
+C
+       READ(50,*,ERR=999,END=999)TIME,RHO1,RHO2
+       RHOT=RHO1+RHO2
+C
+       WRITE(51,100)TIME,RHOT,RHO1,RHO2
+C
+ 100   FORMAT(1X,1P,4(1X,D12.5))
+C
+       GOTO 1900
+C
+ 999   PRINT*,IREC-1,' Records read and written '
+       STOP
+       END

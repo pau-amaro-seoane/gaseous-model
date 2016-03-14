@@ -1,0 +1,544 @@
+read_CentralQuantities # read data about evolution of central quantities from spedi-generated star1.list file
+		define pid_script_sm 666
+		load_loc spedi_utilities.smac
+		get_spedi_units
+		get_spedi_MF
+		define Ncomp $(dimen(M_comp_spedi))
+		define Ncomp_eff $Ncomp
+		if ($Ncomp==1) {
+		   define Ncomp_eff 0
+		}
+		define perl_script "$HOME/GAS_MODEL/util/CreateCentralQuantitiesFilesFromListFile.pl"
+		! [[ -f $perl_script ]]
+		if ($exit_status!=0) { define perl_script CreateCentralQuantitiesFilesFromListFile.pl }
+		!gunzip --force  --to-stdout star1.list(|.gz) | $perl_script
+		
+		# Below, we read the following data : Nstar gamma_Coulomb Ncomp
+		!cat CentralDensities.asc | grep '^\#.*=' | sed 's/Number of mass components/Ncomp/; s/ *= */ /; s/^\# *//' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { _Names_ 1.s _values_ 2 }
+		do i=0,dimen(_Names_)-1 {
+		   define $(_Names_[$i]) $(_values_[$i])
+		   set $(_Names_[$i])=$(_values_[$i])
+		   echo Variable $(_Names_[$i]) set to $$(_Names_[$i])
+		}
+		
+		foreach file { CentralDensities.asc CentralDispersions.asc CoreRadii.asc  }  {
+		   lit_fort $file
+		   !rm $file
+		}
+		set Time_FP=Time/$Nstar*ln($Nstar*$gamma_Coulomb)
+		set RhoCtr0=0*RhoCtr1
+		set DensCtr0=0*RhoCtr1
+		set Sig1DCtr0=0*Sig1DCtr1
+		set MavrgCtr=0*Sig1DCtr1
+		do iComp=1,$Ncomp {
+		   set DensCtr0=DensCtr0+RhoCtr$iComp/m_comp_spedi[$iComp-1]
+		   set RhoCtr0=RhoCtr0+RhoCtr$iComp
+		   set Sig1DCtr0=Sig1DCtr0+RhoCtr$iComp*Sig1DCtr$iComp**2
+		   set MavrgCtr=MavrgCtr+RhoCtr$iComp
+		}
+		set Sig1DCtr0=sqrt(Sig1DCtr0/RhoCtr0)
+		set MavrgCtr=MavrgCtr/DensCtr0
+
+diag_TRhoCtr
+		if ($?T_max==0) {
+		   define T_max_ 1e30
+		} else {
+		   define T_max_ $T_max
+		}
+		if ($?T_min==0) {
+		   define T_min_ 0
+		} else {
+		   define T_min_ $T_min
+		}
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+ 		init_graph
+		location 7000 25000 3500 31000
+
+		expand 1.05
+		relocate ( $($gx1 -0.225*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Central quantities in {\it N}-body units
+		angle 0
+		expand 1.2
+		notation -4 4 -2 2
+
+		set _i_=0,dimen(Time_FP)-1
+		set _i_=_i_ if (Time_FP>=$T_min_ && Time_FP<=$T_max_)
+		if ($?CTRPOT_AS_ABS==1) {
+		   set _x_=lg(PotCtr[_i_])
+		} else {
+		   set _x_=Time_FP[_i_]
+		}
+		define y_gutter 0.1
+		
+		# Central densities
+		window 1 2 1 2
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=0,$Ncomp {
+		   set _y_$iComp=lg(RhoCtr$iComp[_i_])
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		if ($?RHO_MAX==1) {
+		   set y_max=(y_max>lg($RHO_MAX)) ? lg($RHO_MAX) : y_max
+		}
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 0 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box 0 2 0 0
+		relocate ( $($gx1 -0.15*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Mass density
+		angle 0
+		ctype black
+		ltype 1
+		connect _x_ _y_0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+		
+		# Central temperatures
+		window 1 2 1 1
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=0,$Ncomp {
+		   if ($?CTR_DISP==0) {
+		      if ($iComp==0) {
+		         set _y_$iComp=lg(1.5*MavrgCtr*Sig1DCtr$iComp[_i_]**2/m_averg_spedi)
+		      } else {
+		         set _y_$iComp=lg(1.5*m_comp_spedi[$iComp-1]*Sig1DCtr$iComp[_i_]**2/m_averg_spedi)
+		      }
+		   } else {
+		      set _y_$iComp=lg(3*Sig1DCtr$iComp[_i_]**2)
+		   }
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 2 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box 1 2 0 0
+		if ($?CTRPOT_AS_ABS==1) {
+		   xlabel Central potential in {\it N}-body units
+		} else {
+		   xlabel Time in FP units
+		}
+		relocate ( $($gx1 -0.15*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		if ($?CTR_DISP==0) {
+		   putlabel 5 Temperature
+		} else {
+		   putlabel 5 3D Velocity dispersion
+		}
+		angle 0
+		ctype black
+		ltype 1
+		connect _x_ _y_0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+
+		window 1 1 1 1
+		re_init_graph
+		put_profile_mf_legend_ctr_
+
+
+diag_TRhoCtr_hor
+		if ($?T_max==0) {
+		   define T_max_ 1e30
+		} else {
+		   define T_max_ $T_max
+		}
+		if ($?T_min==0) {
+		   define T_min_ 0
+		} else {
+		   define T_min_ $T_min
+		}
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+		
+ 		init_graph
+		location 3000 32400 10000 20000
+		ltype expand 0.6
+		lweight 1.5
+
+
+		expand 0.85
+		notation -4 4 -2 2
+
+		set _i_=0,dimen(Time_FP)-1
+		set _i_=_i_ if (Time_FP>=$T_min_ && Time_FP<=$T_max_)
+		if ($?CTRPOT_AS_ABS==1) {
+		   set _x_=lg(PotCtr[_i_])
+		} else {
+		   set _x_=Time_FP[_i_]
+		}
+		define x_gutter 0.67
+
+		window 1 1 1 1
+		if ($?CTRPOT_AS_ABS==1) {
+		   xlabel Central potential in {\it N}-body units
+		} else {
+		   xlabel Time in FP units
+		}
+		
+		# Central densities
+		window 2 1 1 1
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=0,$Ncomp {
+		   set _y_$iComp=lg(RhoCtr$iComp[_i_])
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		if ($?RHO_MAX==1) {
+		   set y_max=(y_max>lg($RHO_MAX)) ? lg($RHO_MAX) : y_max
+		}
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 0 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box #0 2 0 0
+		relocate ( $($gx1 -0.15*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Mass density
+		angle 0
+		ctype black
+		ltype 1
+		connect _x_ _y_0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+		
+		# Central temperatures
+		window 2 1 2 1
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=0,$Ncomp {
+		   if ($?CTR_DISP==0) {
+		      if ($iComp==0) {
+		         set _y_$iComp=lg(1.5*MavrgCtr*Sig1DCtr$iComp[_i_]**2/m_averg_spedi)
+		      } else {
+		         set _y_$iComp=lg(1.5*m_comp_spedi[$iComp-1]*Sig1DCtr$iComp[_i_]**2/m_averg_spedi)
+		      }
+		   } else {
+		      set _y_$iComp=lg(3*Sig1DCtr$iComp[_i_]**2)
+		   }
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 2 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box 1 2 0 0
+		relocate ( $($gx1 -0.11*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		if ($?CTR_DISP==0) {
+		   putlabel 5 Temperature
+		} else {
+		   putlabel 5 3D Velocity dispersion
+		}
+		angle 0
+		ctype black
+		ltype 1
+		connect _x_ _y_0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+
+		window 1 1 1 1
+		put_profile_mf_legend_ctr_hor_
+		re_init_graph
+
+put_profile_mf_legend_ctr_
+		if ($?_SUPER_==0) {
+		   expand 0.68
+		   if ($?X0==0) { define _X0_ 0.12  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.96  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.026 } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.021 } else { define _dY_ $dY }
+		   location 5000 32000 5000 31000
+		   limits 0 1 0 1
+		   if ($Ncomp_eff>0) {
+		      define _i_ 0
+		      ltype $(ltypes_[0])
+		      ctype $(ctypes_[0])
+		      #relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		      #draw $($_X0_+2*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #ltype 0
+		      #relocate $($_X0_+2.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #putlabel 6  Average
+		      #define _i_ $($_i_+1.3)
+		      relocate $($_X0_+1.5*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 {\it m} [M_{\odot}]
+		      relocate $($_X0_+6.6*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 {\it f}_m
+		      define _i_ $($_i_+0.3)
+		      do icomp=0,$Ncomp_eff-1 {
+		         define _i_ $($_i_+1)
+		         ltype $(ltypes_[($icomp+1)%dimen(ltypes_)])
+		         ctype $(ctypes_[($icomp+1)%dimen(ctypes_)])
+		         relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		         draw $($_X0_+3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         ltype 0
+		         relocate $($_X0_+3.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%3.2f',m_comp_spedi[$icomp]))
+		         relocate $($_X0_+6.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%5.3f',fM_comp_spedi[$icomp]))
+		      }
+		   }     
+		
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000
+		   }
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   ctype black
+		   ltype 0
+		}
+		
+		re_init_graph
+		ltype expand 1
+		
+put_profile_mf_legend_ctr_hor_
+		if ($?_SUPER_==0) {
+		   expand 0.5
+		   if ($?X0==0) { define _X0_ 0.05  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.93  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.021 } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.042 } else { define _dY_ $dY }
+		   limits 0 1 0 1
+		   if ($Ncomp_eff>0) {
+		      define _i_ 0
+		      ltype $(ltypes_[0])
+		      ctype $(ctypes_[0])
+		      #relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		      #draw $($_X0_+2*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #ltype 0
+		      #relocate $($_X0_+2.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      #putlabel 6  Average
+		      #define _i_ $($_i_+1.3)
+		      relocate $($_X0_+1.5*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 {\it m} [M_{\odot}]
+		      relocate $($_X0_+6.6*$_dX_) $($_Y0_-$_i_*$_dY_)
+		      putlabel 6 {\it f}_m
+		      define _i_ $($_i_+0.3)
+		      do icomp=0,$Ncomp_eff-1 {
+		         define _i_ $($_i_+1)
+		         ltype $(ltypes_[($icomp+1)%dimen(ltypes_)])
+		         ctype $(ctypes_[($icomp+1)%dimen(ctypes_)])
+		         relocate $($_X0_) $($_Y0_-$_i_*$_dY_)
+		         draw $($_X0_+3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         ltype 0
+		         relocate $($_X0_+3.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%3.2f',m_comp_spedi[$icomp]))
+		         relocate $($_X0_+6.3*$_dX_) $($_Y0_-$_i_*$_dY_)
+		         putlabel 6 $(sprintf('%5.3f',fM_comp_spedi[$icomp]))
+		      }
+		   }     
+		
+		   if ( $?OUTSIDE_MF_LEGEND==1 ) {
+		      location 4400 25000 3500 30000
+		   }
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   ctype black
+		   ltype 0
+		}
+		
+		re_init_graph
+		ltype expand 1
+
+ctr_collision_rates
+		# determine radii of (MS) stars
+		define print_noheader 1
+		print _TMP$!pid_script_sm""_ '%12.5e 1\n' { m_comp_spedi }
+		!rel_mr < _TMP$!pid_script_sm""_ > _TMP2$!pid_script_sm""_
+		data _TMP2$!pid_script_sm""_
+		read { r_comp_spedi 1 }
+		!rm _TMP$!pid_script_sm""_  _TMP2$!pid_script_sm""_
+		define print_noheader delete
+		
+		if ($?NSTAR_FOR_COLL==0)  { define NSTAR_FOR_COLL  1e6 }
+		if ($?RCLUST_FOR_COLL==0) { define RCLUST_FOR_COLL 0.4 } # in pc
+		define MTOT_FOR_COLL $($NSTAR_FOR_COLL*m_averg_spedi)   # in M_sun
+		define UV_FOR_COLL $(1e-5*sqrt($Sun_GM/$Parsec*$MTOT_FOR_COLL/$RCLUST_FOR_COLL)) # Velocity unit in km/s
+		define UT_FOR_COLL $(1/sqrt($Sun_GM/$Parsec**3*$MTOT_FOR_COLL/$RCLUST_FOR_COLL**3)/$SideralYear) # Time unit in yr
+		set Time_yr = $UT_FOR_COLL*Time
+		
+		do i1=1,$Ncomp_eff {
+		   set coll_rate.$i1=0*Time
+		   do i2=1,$Ncomp_eff {
+		      set sigma_rel_=$UV_FOR_COLL*sqrt(Sig1DCtr$i1**2+Sig1DCtr$i2**2) # in km/s
+		      set dens2_=$MTOT_FOR_COLL/$RCLUST_FOR_COLL**3 *RhoCtr$i2/m_comp_spedi[$i2-1] # in pc^-3
+		      set r_col_=r_comp_spedi[$i1-1]+r_comp_spedi[$i2-1] # in R_sun
+		      set coll_rate.$i1.$i2 = 1e5*$Sun_R**2/$Parsec**3*$SideralYear * 4*sqrt(pi)*dens2_*sigma_rel_*r_col_**2* ( 1 + (436.67/sigma_rel_**2)*(m_comp_spedi[$i1-1]+m_comp_spedi[$i2-1])/r_col_ )
+		      set coll_rate.$i1 =  coll_rate.$i1 + coll_rate.$i1.$i2
+		   }
+		   #set dens1_=$MTOT_FOR_COLL/$RCLUST_FOR_COLL**3 *RhoCtr$i1/m_comp_spedi[$i1-1] # in pc^-3
+		   set nb_coll.$i1=trapeze_vec(Time_yr,coll_rate.$i1)
+		}
+
+		
+		if ($?T_max==0) {
+		   define T_max_ 1e30
+		} else {
+		   define T_max_ $T_max
+		}
+		if ($?T_min==0) {
+		   define T_min_ 0
+		} else {
+		   define T_min_ $T_min
+		}
+
+		if ($Ncomp==0) {
+		   set ctypes_={ black }
+		   set ltypes_={ 0 }
+		} else {
+		   set ctypes_={ black green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red  green cyan blue magenta red green cyan blue magenta red green cyan blue magenta red }
+		   set ltypes_={ 0     0     0    0    0       0   2     2    2    2       2   3     3    3    3       3    4     4    4    4       4   5     5    5    5       5   1     1    1    1       1   }
+		}
+
+ 		init_graph
+		location 7000 25000 3500 31000
+		expand 1.1
+		relocate ( $($gx1+0.06*($gx2-$gx1)) $($gy2-0.04*($gy2-$gy1)) )
+		putlabel 6 {\it N_\ast}=$(sprintf('%3.0t',$NSTAR_FOR_COLL))  {\it R}_{NB}=$RCLUST_FOR_COLL\,pc
+		expand 1.05
+		relocate ( $($gx1 -0.25*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Central quantities per star
+		angle 0
+		expand 1.2
+		notation -4 4 -2 2
+		expand 1.2
+
+		set _i_=0,dimen(Time_FP)-1
+		set _i_=_i_ if (Time_FP>=$T_min_ && Time_FP<=$T_max_)
+		if ($?CTRPOT_AS_ABS==1) {
+		   set _x_=lg(PotCtr[_i_])
+		} else {
+		   set _x_=Time_yr[_i_]
+		}
+		define y_gutter 0.1
+		
+		# Central collision rates
+		window 1 2 1 2
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=1,$Ncomp {
+		   set _y_$iComp=lg(coll_rate.$iComp[_i_])
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		if ($?RATE_MAX==1) {
+		   set y_max=(y_max>lg($RATE_MAX)) ? lg($RATE_MAX) : y_max
+		}
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 0 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box 0 2 0 0
+		relocate ( $($gx1 -0.18*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Collision rate in yr^{-1}
+		angle 0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+		
+		# Central collision numbers
+		window 1 2 1 1
+		set y_min= 1e30
+		set y_max=-1e30
+		do iComp=1,$Ncomp {
+		   set _y_$iComp=lg(nb_coll.$iComp)
+		   vecminmax _y_$iComp _min_ _max_
+		   set y_min=(y_min>$_min_)?$_min_:y_min
+		   set y_max=(y_max<$_max_)?$_max_:y_max
+		}
+		set y_min=-4.5
+		limits _x_ (y_min concat y_max)
+		if ($?CTRPOT_AS_ABS==1) {
+		   ticksize -1 2 -1 0
+		} else {
+		   ticksize 0 0 -1 0
+		}
+		box 1 2 0 0
+		if ($?CTRPOT_AS_ABS==1) {
+		   xlabel Central potential in {\it N}-body units
+		} else {
+		   xlabel Time in years
+		}
+		relocate ( $($gx1 -0.18*($gx2-$gx1)) $(0.5*($gy1+$gy2)) )
+		angle 90
+		putlabel 5 Integr. number of coll.
+		angle 0
+		ctype black
+		ltype 1
+		connect _x_ _y_0
+		do iComp=1,$Ncomp {
+		   ctype $(ctypes_[($iComp)%dimen(ctypes_)])
+		   ltype $(ltypes_[($iComp)%dimen(ltypes_)])
+		   connect _x_ _y_$iComp
+		}
+		ctype black
+		ltype 0
+
+		window 1 1 1 1
+		re_init_graph
+		#put_profile_mf_legend_ctr_
+ 

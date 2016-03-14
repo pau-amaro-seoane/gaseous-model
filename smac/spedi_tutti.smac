@@ -1,0 +1,32 @@
+spedi_tutti
+		if ($?pid_script_sm==0) {
+		   define pid_script_sm 666
+		}
+		if ($?spedi_smac_path==0) { 
+		   define spedi_smac_path "$!HOME/GAS_MODEL/smac/"
+		   ![[ -d $spedi_smac_path ]]
+		   if ($exit_status!=0) {
+		      define spedi_smac_path "$!HOME/sm/" # pour Pau
+		   }
+		}
+		if ($?spedi_util_path==0) { 
+		   define spedi_util_path "$!HOME/GAS_MODEL/util/"
+		   ![[ -d $spedi_util_path ]]
+		   if ($exit_status!=0) {
+		      define spedi_util_path "$!HOME/bin/" # pour Pau
+		   }
+		}
+		spedi_load spedi_utilities.smac
+		spedi_load spedi_RayLag.smac
+		spedi_load spedi_Profiles.smac
+		spedi_load spedi_LC_DiffusionModel.smac
+		spedi_load spedi_BlackHole.smac
+		if ($?T_RH==0) { define T_RH 0.093 }
+		undef ABS_LOG
+		define T_max 1e30
+		define T_min 0
+		undef PHYS_UNITS
+		spedi_clean
+
+spedi_load 1
+		macro read "$!spedi_smac_path/$!1"

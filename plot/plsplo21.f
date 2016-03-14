@@ -1,0 +1,7 @@
+        IF(II.NE.-21) GOTO 9800
+        PRINT*,' PLSPLO21 called'
+        ITP=NMOMIN
+      DO 521 IO=1,NTP-1
+        ITP=ITP+NINT
+        VEC(K,IO)=VST(ITP,1)-5.81861506D+03
+ 521    CONTINUE

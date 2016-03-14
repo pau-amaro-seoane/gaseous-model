@@ -1,0 +1,365 @@
+# mbh_t: Mass of BH in function of t
+#        1 argument: vector containing names of simulations
+#| macros :
+#| --------
+#|   mbh_t mbhdot_t read_data plot_single_mass_models
+#|   plot_single_mass_models_with_mc plot_mc_single_mass_backgrd
+#|   get_units
+#|
+
+#####################################################################################
+# 
+# spedi_mbh_t.smac for dummies
+# ============================
+#
+# spedi_mbh_t.smac - macro for supermongo to plot Mbh in function
+#                    of the time (Trh)
+# 
+# In the directory where you have made the run execute the following
+# ------------------------------------------------------------------ 
+#
+# - D2E.pl < star1.list.$$ > out.list
+# - select_mbh_t.sh < out.list > xxx.dat
+#  
+# In /where/you/have/sm > you have to make the links to the .dat
+# in the different directories
+#  
+# ln -s single_comp/pl_N1e5/pl_N1e5_Mbh500_Rp1/xxx.dat yyy.dat , for instance
+#  
+#  
+# Commands for sm to get the plots
+# -------------------------------- 
+#
+# - sm
+# - load2 spedi_mbh_t.smac
+# - plot_single_mass_models
+# - if needed edit spedi_mbh_t.smac to vary parameters
+#
+#
+#
+# You have the possibility to display altogether in the plot, both the
+# ---------------------------------------------------------------------
+#
+#	i)  time in Trh (below box) AND in years (above box)
+#  	ii) Mass relative to the total cluster mass (left box) AND M_sun (right box)
+#
+#	For that you have to write the following commands:
+#	
+#	i)  define MTOT_IN_MSUN 1e6 
+#	ii) define TRH_IN_YR 2.55e8 for 1e6 1-M_sun stars
+#
+#	i)  define MTOT_IN_MSUN 1e5 
+#	ii) define TRH_IN_YR 1.042e8 for 1e5 1-M_sun stars
+#
+#	Otherwise the macro will just plot the default 
+#	(time in Trh and mass relative to the total cluster mass)
+#
+# Create an eps file of the plot:
+# -------------------------------
+# 
+# -eps zzz.eps
+# -load spedi_bh_t.smac
+# -plot_single_mass_models
+# -device x11
+#  
+# Additional information to sm (included in plot_single_mass_models
+# in spedi_bh_t.smac, vary if you want)
+#  
+# -cursor gives you the coordinates x y of a point in the box
+# -relocate x y putlabel 6 500\, M_\odot
+#####################################################################################
+
+mbh_t 1 
+	set FileNames=$1 # FileNames is a "vector"
+
+	# read the data
+
+	do iFile=0,dimen(FileNames)-1 { # iFile is a "variable"
+		echo Reading data from file $(FileNames[$iFile])
+		
+		# read gamma and Nstar to transform to units of Trh
+                ## DON'T WORK DUE TO SM BUG....
+		### !grep 'gamma=' < $(FileNames[$iFile]) | sed 's/\# gamma=//; s/Nstar=//' > /tmp/_TMPxx_
+		### read < gamma"_"$iFile 1 Nstar"_"$iFile 2 >
+		###!rm /tmp/_TMPxx_
+		set gamma"_"$iFile=0.11 set Nstar"_"$iFile=1e5
+		echo ATTENTION!!!  gamma"_"$iFile mis a 0.11 par force !!!
+		echo ATTENTION!!!  Nstar"_"$iFile mis a 1e5 par force !!!
+		
+		lit_fort $(FileNames[$iFile])
+		do j=0,dimen(Noms_Var_Fich_Fort_)-1 {
+			define vec $(Noms_Var_Fich_Fort_[$j])
+			set $vec"_"$iFile = $vec # defines t_nb_0 mbh_nb_0 from first file, t_nb_1 mbh_nb_1 from second, etc...
+		}
+		# convert to Trh units (for Plummer model!)
+		set t_trh"_"$iFile=t_nb"_"$iFile / (0.093*Nstar"_"$iFile/ln(gamma"_"$iFile*Nstar"_"$iFile))
+	}
+
+	# plot the data
+
+	# allow for user-specified colors
+	if ($?IMPOSED_COLORS==1) {
+		set _colors_=$IMPOSED_COLORS
+	} else {
+		set _colors_ = { red magenta blue cyan green black red magenta blue cyan green black }
+	}
+
+	# allow for user-specified ltypes
+	if ($?IMPOSED_LTYPES==1) {
+		set _ltypes_=$IMPOSED_LTYPES
+	} else {
+		set _ltypes_ = { 0 3 4 1 2 5 6 0 3 4 1 2 5 6 }
+	}
+
+	erase
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		location 5500 27900 5000 28000
+	} else {
+		location 6000 31000 5000 31000
+	}
+	expand 1.5
+	lweight 2
+	ltype 0
+	ctype default
+	define TeX_strings 1
+	
+	#limits 0.4 2.05 -5 0
+	limits 0 2.6 -3.6 -0.5
+	define fx1_ $fx1
+	define fx2_ $fx2
+	define fy1_ $fy1
+	define fy2_ $fy2
+	ticksize -1 0 -1 0 # log ticks for x and y axis
+	
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		box 1 2 3 3
+	} else {
+		box
+	}
+	xlabel Time in {\it T}_{rh}
+	ylabel {\s M}_{bh} in {\it M}_{clust}(0)
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		limits $($fx1+lg($TRH_IN_YR)) $($fx2+lg($TRH_IN_YR)) $($fy1+lg($MTOT_IN_MSUN)) $($fy2+lg($MTOT_IN_MSUN))
+		box 3 3 1 2
+		relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		putlabel 5 Time in years
+		relocate ( $($gx2+0.16*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		angle 90
+		putlabel 5 {\s M}_{bh} in {\it M}_\odot
+		angle 0
+	}
+
+	limits $fx1_ $fx2_ $fy1_ $fy2_ 
+	if ($?BACKGROUND_PLOT==1) { $BACKGROUND_PLOT }
+	set _i_=0
+	do iFile=0,dimen(FileNames)-1 {
+		ctype $(_colors_[$iFile%dimen(_colors_)]) 
+                set _i_=_i_+1
+		if (_i_==dimen(_colors_)) { set _i_=0 }
+		ltype $(_ltypes_[$iFile%dimen(_ltypes_)])
+                connect (lg(t_trh_$iFile)) (lg(mbh_nb_$iFile))
+	}
+	ctype default
+
+# mdotbh_t: Mass accretion rate on to BH in function of t
+#           1 argument: vector containing names of data files (or just the name of _one_ file)
+
+#####################################################################################
+# 
+# spedi_mbh_t.smac for dummies
+# ============================
+#
+# spedi_mbh_t.smac - macro for supermongo to plot Mbh and d(Mbh)/dt in function
+#                    of the time (Trh)
+# 
+# In the directory where you have made the run execute the following
+# ------------------------------------------------------------------ 
+#
+# - D2E.pl < star1.list.$$ > out.list
+# - select_accr_rates_t.sh < out.list > xxx.dat
+#  
+# In /where/you/have/sm > you have to make the links to the .dat
+# in the different directories
+#  
+# ln -s single_comp/pl_N1e5/pl_N1e5_Mbh500_Rp1/xxx.dat yyy.dat , for instance
+#  
+# Commands for sm to get the plots
+# -------------------------------- 
+#
+# - sm
+# - load2 spedi_mbh_t.smac
+# - set Names={ xxx.dat yyy.day zzz.dat }
+# - mdotbh_t Names (or mdotbh_t xxx.dat) 
+#
+# You have the possibility to display altogether in the plot, both the
+# ---------------------------------------------------------------------
+#
+#	i)  time in Trh (below box) AND in years (above box)
+#  	ii) Mass relative to the total cluster mass (left box) AND M_sun (right box)
+#
+#	For that you have to write the following commands:
+#	
+#	i)  define MTOT_IN_MSUN 1e6 
+#	ii) define TRH_IN_YR 2.55e8
+#
+#	Otherwise the macro will just plot the default 
+#	(time in Trh and mass relative to the total cluster mass)
+#
+# Create an eps file of the plot:
+# -------------------------------
+# 
+# - eps zzz.eps
+# - mdotbh_t Names
+# - device x11
+#
+# To have a b&w plot:
+# ----------------- 
+# - set my_colors={black}
+# - define IMPOSED_COLORS my_colors
+# - mbhdot_t Names
+
+
+#####################################################################################
+
+mbhdot_t 1 
+	if (is_vector($1)) {
+		set FileNames=$1 # FileNames is a "vector"
+	} else {
+		set FileNames=< $1 >
+	}
+	# read the data
+
+	do iFile=0,dimen(FileNames)-1 { # iFile is a "variable"
+		echo Reading data from file $(FileNames[$iFile])
+		
+		# read gamma and Nstar to transform to units of Trh
+                ## DON'T WORK DUE TO SM BUG....
+		### !grep 'gamma=' < $(FileNames[$iFile]) | sed 's/\# gamma=//; s/Nstar=//' > /tmp/_TMPxx_
+		### read < gamma"_"$iFile 1 Nstar"_"$iFile 2 >
+		###!rm /tmp/_TMPxx_
+		set gamma"_"$iFile=0.11 set Nstar"_"$iFile=1e5
+		echo ATTENTION!!!  gamma"_"$iFile mis a 0.11 par force !!!
+		echo ATTENTION!!!  Nstar"_"$iFile mis a 1e5 par force !!!
+		
+		lit_fort $(FileNames[$iFile])
+		do j=0,dimen(Noms_Var_Fich_Fort_)-1 {
+			define vec $(Noms_Var_Fich_Fort_[$j])
+			set $vec"_"$iFile = $vec # defines t_nb_0 macc_nb_0 from first file, t_nb_1 macc_nb_1 from second, etc...
+		}
+		# convert to Trh units (for Plummer model!)
+		set t_trh"_"$iFile=t_nb"_"$iFile / (0.093*Nstar"_"$iFile/ln(gamma"_"$iFile*Nstar"_"$iFile))
+		set m_acc_trh"_"$iFile=m_acc_nb"_"$iFile * (0.093*Nstar"_"$iFile/ln(gamma"_"$iFile*Nstar"_"$iFile))
+	}
+
+	# plot the data
+
+	# allow for user-specified colors
+	if ($?IMPOSED_COLORS==1) {
+		set _colors_=$IMPOSED_COLORS
+	} else {
+		set _colors_ = { red magenta blue cyan green black red magenta blue cyan green black }
+	}
+
+	# allow for user-specified ltypes
+	if ($?IMPOSED_LTYPES==1) {
+		set _ltypes_=$IMPOSED_LTYPES
+	} else {
+		set _ltypes_ = { 0 3 4 1 2 5 6 0 3 4 1 2 5 6 }
+	}
+
+
+	erase
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		location 5500 27900 5000 28000
+	} else {
+		location 6000 31000 5000 31000
+	}
+	expand 1.5
+	lweight 2
+	ltype 0
+	ctype default
+	define TeX_strings 1
+	
+	#limits 0.4 2.05 -6.5 -1
+	limits 0 2.6 -6.3 -1.5
+	define fx1_ $fx1
+	define fx2_ $fx2
+	define fy1_ $fy1
+	define fy2_ $fy2
+	ticksize -1 0 -1 0 # log ticks for x and y axis
+	notation -2 2 -2 2
+
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		box 1 2 3 3
+	} else {
+		box
+	}
+	xlabel Time in {\it T}_{rh}
+	ylabel d{\s M}_{bh}/d{\it t} in {\it M}_{clust}\,{\it T}_{rh}^{-1}
+	if ($?TRH_IN_YR==1 && $?MTOT_IN_MSUN==1) {
+		limits $($fx1+lg($TRH_IN_YR)) $($fx2+lg($TRH_IN_YR)) $($fy1+lg($MTOT_IN_MSUN)-lg($TRH_IN_YR)) $($fy2+lg($MTOT_IN_MSUN)-lg($TRH_IN_YR))
+		box 3 3 1 2
+		relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		putlabel 5 Time in years
+		relocate ( $($gx2+0.175*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		angle 90
+		putlabel 5 d{\s M}_{bh}/d{\it t} in {\it M}_\odot\,yr^{-1}
+		angle 0
+	}
+
+	limits $fx1_ $fx2_ $fy1_ $fy2_ 
+	if ($?BACKGROUND_PLOT==1) { $BACKGROUND_PLOT }
+	set _i_=0
+	do iFile=0,dimen(FileNames)-1 {
+		ctype $(_colors_[$iFile%dimen(_colors_)]) 
+                set _i_=_i_+1
+		if (_i_==dimen(_colors_)) { set _i_=0 }
+		ltype $(_ltypes_[$iFile%dimen(_ltypes_)]) 		
+                connect (lg(t_trh_$iFile)) (lg(m_acc_trh_$iFile))
+	}
+	ctype default
+
+################################################################################################
+
+
+plot_single_mass_models
+		notation -2 2 -2 2
+		define MTOT_IN_MSUN 1e6
+		define TRH_IN_YR 2.55e8
+		set Names=<a_mbh_t.dat b_mbh_t.dat c_mbh_t.dat>
+		define IMPOSED_COLORS delete
+		define IMPOSED_LTYPES delete
+		
+		mbh_t Names
+		
+		ctype default  
+		relocate 1.48246 0.375905 
+		#putlabel 6 {\it M}_{clust}(0)=1e7\,{\it M}_\odot
+		#putlabel 6 {\it N}_{*}=1e7
+
+		ctype default 
+		relocate 1.63222 -1.62264 
+		#putlabel 6 {\it M}_{clust}(0)=1e5\,{\it M}_\odot
+		
+		define IMPOSED_COLORS delete
+		define IMPOSED_LTYPES delete
+
+plot_single_mass_models_with_mc
+	define BACKGROUND_PLOT plot_mc_single_mass_backgrd
+	plot_single_mass_models
+	undef BACKGROUND_PLOT
+
+plot_mc_single_mass_backgrd
+	set Names_mc=<"MC5-5.asc"  "MC5-50.asc"  "MC5-500.asc"  "MC7-5e3.asc"  "MC7-5e4.asc" "MC7-50_1M.asc"  "MC7-500_1M.asc"  >
+	set colors_mc=<default      default       default       red           red            red           red            red            red>
+	set ltype_mc=< 2            2             2             2             2              2             2              4              4>
+	ltype 1
+	set i=-1
+	foreach name Names_mc {
+		set i=i+1
+		lit_fort "$!name"
+		ctype $(colors_mc[i])
+		ltype $(ltype_mc[i])
+		connect log10_Time log10_MBH if (log10_MBH>-10)
+	}
+	ltype 0

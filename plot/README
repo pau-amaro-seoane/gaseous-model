@@ -1,0 +1,46 @@
+How to use the binary files
+============================
+
+1- With the same ICs you ran the simulation, i.e. with equiv.f, compar.f i params.f,
+   compile getdata.f in plot/
+
+   The best is to create links: ln -s equiv.f /path/spedi/equiv.f
+
+   rm *.o and then make --> creates getdata
+
+   And ndcode.f (in /ndcode/)
+
+   g77 -o ndcode ndcode.f
+
+   --> You get the executables ndcode and getdata
+
+2- In the same dir where you have the binary results from the simulation,
+   place ndcode and getdata
+
+3- Run my_ndcode.sh :
+   my_ndcode.sh X (X=1, 2...)
+   --> You get starX.enccwr and starX.encinf
+
+4- Now you can get the ascii files by running
+
+   my_getdata.sh X Y Z (no limits)
+
+   This produces a file X_Y_Z.data in columns with the
+   corresponding quantities
+
+   If you want to know what is each number (X, Y, Z), check
+   fort.90, which unfortunately is different for each simulation
+   because it depends on the number of components
+
+Summary
+=======
+
+/plot/> make --> getdata
+
+/ndcode/> g77 -o ndcode ndcode.f
+
+cp getdata ndcode /simulation/
+
+/simulation > my_ndcode.sh X --> starX.enccwr, starX.enccif
+
+/simulation> my_getdata.sh 1 2 ... (check fort.90)

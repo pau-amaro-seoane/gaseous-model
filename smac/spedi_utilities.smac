@@ -1,0 +1,51 @@
+#| macros :
+#| --------
+#|   get_spedi_MF get_spedi_central_rho get_spedi_units
+#|
+
+
+get_spedi_MF # get the "mass function"
+		!gunzip --force  --to-stdout star1.list(|.gz) | grep '^ *I=' | sed 's/ *[a-zA-Z][a-zA-Z]*= */ /g' > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { icomp_spedi 1 Nst_comp_spedi 2 M_comp_spedi 3 m_comp_spedi 4 }
+		set fN_comp_spedi = Nst_comp_spedi/sum(Nst_comp_spedi)
+		set fM_comp_spedi = M_comp_spedi/sum(M_comp_spedi)
+		set m_averg_spedi = sum(fN_comp_spedi*m_comp_spedi)
+		!rm _TMP$!pid_script_sm""_
+
+get_spedi_central_rho
+		!gunzip --force  --to-stdout star1.list(|.gz) | grep '^ *T=..*RHO=' | sed 's/^ *T= *//; s/ *DT=..*RHO= *\([^ ][^ ]*\)  *.*/ \1/' > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { T_rhoc_spedi 1 Rhoc_spedi 2}
+		!rm _TMP$!pid_script_sm""_
+		
+get_spedi_units # read code units (in cgs units) from star1.list file
+		!gunzip	--force --to-stdout star1.list(|.gz) | head -n 200 > _TMP2$!pid_script_sm""_
+		!cat _TMP2$!pid_script_sm""_ | grep -A3 'CONVERSION OF CALCULATION UNITS TO CGS UNITS' | tail -n 3 | sed 's/^[^0-9]*= *//; s/ .*= */ /; s/ *[^ ]*\$//' | tr '\\012' ' ' >  _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { unit_r_cgs 1 unit_m_cgs 2 unit_rho_cgs 3 unit_u_cgs 4 unit_t_cgs 5 unit_lum_cgs 6 }
+		!rm  _TMP$!pid_script_sm""_ _TMP2$!pid_script_sm""_
+		set unit_r_pc = unit_r_cgs/$Parsec
+		set unit_t_yr = unit_t_cgs/$SideralYear
+		set unit_m_msun = unit_m_cgs/$Sun_M
+		set unit_rho_msunpc3 = unit_rho_cgs/$Sun_M*$Parsec**3
+		set unit_u_kms = unit_u_cgs/1e5
+		set unit_lum_lsun = unit_lum_cgs/$Sun_L
+		foreach name { unit_r_pc unit_t_yr unit_m_msun unit_rho_msunpc3 unit_u_kms unit_lum_lsun } {
+		   define $name $($name)
+		}
+
+get_spedi_MBH # read M_BH(t) from star1.list
+		delete T_MBH
+		delete MBH
+		!gunzip	--force --to-stdout star1.list(|.gz) | $spedi_util_path/select_mbh_t.sh > _TMP$!pid_script_sm""_
+		data _TMP$!pid_script_sm""_
+		read { T_MBH 1 MBH 3 }
+		! rm _TMP$!pid_script_sm""_
+
+spedi_clean
+		! rm star1.list(|.gz)
+		! rm rho_profile*.asc
+		! rm sigma_profile*.asc
+		! rm mass_profile*.asc
+		! rm DiffusionModelQuantities_*.asc

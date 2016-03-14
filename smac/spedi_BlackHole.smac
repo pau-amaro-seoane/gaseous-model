@@ -1,0 +1,498 @@
+#| macros :
+#| --------
+#|   mbh_t mbhdot_t read_data plot_single_mass_models
+#|   plot_single_mass_models_with_mc plot_mc_single_mass_backgrd
+#|   get_units
+#|
+
+read_BH_spedi 1	# $1 Vector containing names of directories where spedi simulations are to be found (star1.list(.gz) files)
+		set DirNames=$1
+
+		# read the data
+
+		do iSim=0,dimen(DirNames)-1 {
+		   echo Reading data from directory $(DirNames[$iSim])
+		   
+		   ! ln -sf $(DirNames[$iSim])/star1.list(|.gz) .#	
+		   
+		   get_spedi_units
+		   foreach name { unit_r_pc unit_t_yr unit_m_msun unit_rho_msunpc3 unit_u_kms unit_lum_lsun } {
+		      set $name"_"$iSim = $name
+		      define $name"_"$iSim $($name)
+		   }
+		   
+		   ! $spedi_util_path/get_NstarGamma_from_listFile.sh < $(DirNames[$iSim])/star1.list(|.gz) > _TMP$!pid_script_sm""_#
+		   data  _TMP$!pid_script_sm""_
+		   read < gamma"_"$iSim 4 Nstar"_"$iSim 2 >
+		   define gamma"_"$iSim $(gamma"_"$iSim)
+		   define Nstar"_"$iSim $(Nstar"_"$iSim)
+		   set Trh_nb_$iSim = $T_RH*Nstar"_"$iSim/ln(gamma"_"$iSim*Nstar"_"$iSim)
+		   
+		   ! $spedi_util_path/get_BHdata_from_listFile.sh < $(DirNames[$iSim])/star1.list(|.gz) > _TMP$!pid_script_sm""_#
+		   lit_fort _TMP$!pid_script_sm""_
+		   ! rm _TMP$!pid_script_sm""_#
+		   do j=0,dimen(Noms_Var_Fich_Fort_)-1 {
+		      define vec $(Noms_Var_Fich_Fort_[$j])
+		      set $vec"_"$iSim = $vec # defines t_nb_0 mbh_nb_0 dmbh_nb_0 from first file, t_nb_1 mbh_nb_1 dmbh_nb_1 from second, etc...
+		   }
+		   # convert to Trh units
+		   set t_trh"_"$iSim=t_nb"_"$iSim / Trh_nb_$iSim
+		   set dmbh_trh"_"$iSim=dmbh_nb"_"$iSim * Trh_nb_$iSim
+		}
+		! rm star1.list(|.gz)#
+
+
+plot_MBH_t_spedi        # plot the data
+		# allow for user-specified colors	
+                if ($?IMPOSED_COLORS==1) {
+		   set _colors_=$IMPOSED_COLORS
+		} else {
+		   set _colors_ = { red magenta blue cyan green black red magenta blue cyan green black }
+		}
+
+		# allow for user-specified ltypes
+		if ($?IMPOSED_LTYPES==1) {
+		   set _ltypes_=$IMPOSED_LTYPES
+		} else {
+		   set _ltypes_ = { 0 3 4 1 2 5 6 0 3 4 1 2 5 6 }
+		}
+
+		init_graph
+		if ($?PHYS_UNITS==1) {
+		   location 5500 27600 5000 28000
+		} else {
+		   location 6000 31000 5000 31000
+		}
+		expand 1.45
+		lweight 2
+		ltype 0
+		ctype default
+		define TeX_strings 1
+
+		set x_min=1e30
+		set x_max=-1e30
+		do iSim=0,dimen(DirNames)-1 {
+		   set _i_=0,dimen(t_trh_$iSim)-1
+		   set _i_=_i_ if (t_trh_$iSim[_i_]>1e-30 && mbh_nb_$iSim>1e-30)
+		   set _x_$iSim = lg(t_trh_$iSim[_i_])
+		   set _y_$iSim = lg(mbh_nb_$iSim[_i_])
+		   set x_min=(x_min<_x_$iSim[0]) ? x_min : _x_$iSim[0]
+		   set x_max=(x_max>_x_$iSim[dimen(_x_$iSim)-1]) ? x_max : _x_$iSim[dimen(_x_$iSim)-1]
+		}
+		
+		if ($?FIGER_LIMITES==0) {
+		   if ($?X_MIN==1) { 
+		      define _X_MIN_ $(lg($X_MIN))
+		   } else {
+		      define _X_MIN_ $(x_min)
+		   }
+		   if ($?X_MAX==1) { 
+		      define _X_MAX_ $(lg($X_MAX))
+		   } else {
+		      define _X_MAX_ $(x_max)
+		   }   
+		   set y_min=1e30
+		   set y_max=-1e30
+		   do iSim=0,dimen(DirNames)-1 {
+		      set _y_=_y_$iSim if (_x_$iSim>=$_X_MIN_ && _x_$iSim<=$_X_MAX_)
+		      sort { _y_ }
+		      set y_min=(y_min<_y_[0]) ? y_min : _y_[0]
+		      set y_max=(y_max>_y_[dimen(_y_)-1]) ? y_max : _y_[dimen(_y_)-1]
+		   }
+		   limits $_X_MIN_ $_X_MAX_ ( y_min concat y_max )
+		}
+		
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		ticksize -1 0 -1 0      # log ticks for x and y axis
+		
+		if ($?PHYS_UNITS==1) {
+		   box 1 2 3 3
+		} else {
+		   box
+		}
+		xlabel Time in {\it T}_{rh}{\-1{(0)}}
+		ylabel {\s M}_{bh} in {\it M}_{clust}{\-1{(0)}}
+		if ($?PHYS_UNITS==1) {
+		   limits $($fx1+lg(Trh_nb_0*unit_t_yr_0)) $($fx2+lg(Trh_nb_0*unit_t_yr_0)) $($fy1+lg(unit_m_msun_0)) $($fy2+lg(unit_m_msun_0))
+		   box 3 3 1 2
+		   relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		   putlabel 5 Time in years
+		   relocate ( $($gx2+0.165*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		   angle 90
+		   putlabel 5 {\s M}_{bh} in {\it M}_\odot
+		   angle 0
+		}
+
+		limits $fx1_ $fx2_ $fy1_ $fy2_ 
+		if ($?BACKGROUND_PLOT==1) { $BACKGROUND_PLOT }
+		set _i_=0
+		do iSim=0,dimen(DirNames)-1 {
+		   ctype $(_colors_[$iSim%dimen(_colors_)]) 
+		   set _i_=_i_+1
+		   if (_i_==dimen(_colors_)) { set _i_=0 }
+		   ltype $(_ltypes_[$iSim%dimen(_ltypes_)])
+		   connect _x_$iSim _y_$iSim
+		}
+		
+		# Put legends for the curves
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.60  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.60  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.12  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.05  } else { define _dY_ $dY }
+
+		if (is_vector(labels_spedi)==0) {
+		   set labels_=DirNames
+		   define TeX_strings delete
+		} else {
+		   set labels_=labels_spedi
+		   define TeX_strings 1
+		}
+		expand 1.3
+		do iSim=0,dimen(DirNames)-1 {
+		   ctype $(_colors_[$iSim%dimen(_colors_)]) 
+		   ltype $(_ltypes_[$iSim%dimen(_ltypes_)])
+		   relocate $($_X0_)           $($_Y0_-$iSim*$_dY_)
+		   draw     $($_X0_+$_dX_)     $($_Y0_-$iSim*$_dY_)
+		   ltype 0
+		   relocate $($_X0_+1.3*$_dX_) $($_Y0_-$iSim*$_dY_)
+		   putlabel 6 $(labels_[$iSim])
+		}
+		ctype black
+		define TeX_strings 1
+		
+		limits $fx1_ $fx2_ $fy1_ $fy2_ 
+		re_init_graph
+
+
+
+plot_dMBH_t_spedi        # plot the data
+		# allow for user-specified colors	
+                if ($?IMPOSED_COLORS==1) {
+		   set _colors_=$IMPOSED_COLORS
+		} else {
+		   set _colors_ = { red magenta blue cyan green black red magenta blue cyan green black }
+		}
+
+		# allow for user-specified ltypes
+		if ($?IMPOSED_LTYPES==1) {
+		   set _ltypes_=$IMPOSED_LTYPES
+		} else {
+		   set _ltypes_ = { 0 3 4 1 2 5 6 0 3 4 1 2 5 6 }
+		}
+
+		init_graph
+		if ($?PHYS_UNITS==1) {
+		   location 5500 27600 5000 28000
+		} else {
+		   location 6000 31000 5000 31000
+		}
+		expand 1.45
+		lweight 2
+		ltype 0
+		ctype default
+		define TeX_strings 1
+
+		set x_min=1e30
+		set x_max=-1e30
+		do iSim=0,dimen(DirNames)-1 {
+		   set _i_=0,dimen(t_trh_$iSim)-1
+		   set _i_=_i_ if (t_trh_$iSim[_i_]>1e-30 && mbh_nb_$iSim>1e-30)
+		   set _x_$iSim = lg(t_trh_$iSim[_i_])
+		   set _y_$iSim = lg(dmbh_trh_$iSim[_i_])
+		   set x_min=(x_min<_x_$iSim[0]) ? x_min : _x_$iSim[0]
+		   set x_max=(x_max>_x_$iSim[dimen(_x_$iSim)-1]) ? x_max : _x_$iSim[dimen(_x_$iSim)-1]
+		}
+		
+		if ($?FIGER_LIMITES==0) {
+		   if ($?X_MIN==1) { 
+		      define _X_MIN_ $(lg($X_MIN))
+		   } else {
+		      define _X_MIN_ $(x_min)
+		   }
+		   if ($?X_MAX==1) { 
+		      define _X_MAX_ $(lg($X_MAX))
+		   } else {
+		      define _X_MAX_ $(x_max)
+		   }   
+		   set y_min=1e30
+		   set y_max=-1e30
+		   do iSim=0,dimen(DirNames)-1 {
+		      set _y_=_y_$iSim if (_x_$iSim>=$_X_MIN_ && _x_$iSim<=$_X_MAX_)
+		      sort { _y_ }
+		      set y_min=(y_min<_y_[0]) ? y_min : _y_[0]
+		      set y_max=(y_max>_y_[dimen(_y_)-1]) ? y_max : _y_[dimen(_y_)-1]
+		   }
+		   limits $_X_MIN_ $_X_MAX_ ( y_min concat y_max )
+		}
+		
+		define fx1_ $fx1
+		define fx2_ $fx2
+		define fy1_ $fy1
+		define fy2_ $fy2
+		ticksize -1 0 -1 0      # log ticks for x and y axis
+		
+		if ($?PHYS_UNITS==1) {
+		   box 1 2 3 3
+		} else {
+		   box
+		}
+		xlabel Time in {\it T}_{rh}{\-1{(0)}}
+		ylabel d{\s M}_{bh}/d{\it t} in {\it M}_{clust}{\-1{(0)}}/{\it T}_{rh}{\-1{(0)}}
+		if ($?PHYS_UNITS==1) {
+		   limits $($fx1+lg(Trh_nb_0*unit_t_yr_0)) $($fx2+lg(Trh_nb_0*unit_t_yr_0)) $($fy1+lg(unit_m_msun_0)-lg(Trh_nb_0*unit_t_yr_0)) $($fy2+lg(unit_m_msun_0)-lg(Trh_nb_0*unit_t_yr_0))
+		   box 3 3 1 2
+		   relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		   putlabel 5 Time in years
+		   relocate ( $($gx2+0.165*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		   angle 90
+		   putlabel 5 d{\s M}_{bh}/d{\it t} in {\it M}_\odot\,yr^{-1}
+		   angle 0
+		}
+
+		limits $fx1_ $fx2_ $fy1_ $fy2_ 
+		if ($?BACKGROUND_PLOT==1) { $BACKGROUND_PLOT }
+		set _i_=0
+		do iSim=0,dimen(DirNames)-1 {
+		   ctype $(_colors_[$iSim%dimen(_colors_)]) 
+		   set _i_=_i_+1
+		   if (_i_==dimen(_colors_)) { set _i_=0 }
+		   ltype $(_ltypes_[$iSim%dimen(_ltypes_)])
+		   connect _x_$iSim _y_$iSim
+		}
+
+		# Put legends for the curves
+		limits 0 1 0 1
+		if ($?X0==0) { define _X0_ 0.50  } else { define _X0_ $X0 }
+		if ($?Y0==0) { define _Y0_ 0.40  } else { define _Y0_ $Y0 }
+		if ($?dX==0) { define _dX_ 0.12  } else { define _dX_ $dX }
+		if ($?dY==0) { define _dY_ 0.05  } else { define _dY_ $dY }
+
+		if (is_vector(labels_spedi)==0) {
+		   set labels_=DirNames
+		   define TeX_strings delete
+		} else {
+		   set labels_=labels_spedi
+		   define TeX_strings 1
+		}
+		expand 1.3
+		do iSim=0,dimen(DirNames)-1 {
+		   ctype $(_colors_[$iSim%dimen(_colors_)]) 
+		   ltype $(_ltypes_[$iSim%dimen(_ltypes_)])
+		   relocate $($_X0_)           $($_Y0_-$iSim*$_dY_)
+		   draw     $($_X0_+$_dX_)     $($_Y0_-$iSim*$_dY_)
+		   ltype 0
+		   relocate $($_X0_+1.3*$_dX_) $($_Y0_-$iSim*$_dY_)
+		   putlabel 6 $(labels_[$iSim])
+		}
+		ctype black
+		define TeX_strings 1
+		
+		limits $fx1_ $fx2_ $fy1_ $fy2_ 
+		re_init_graph
+
+evol_dens_Rinfl # Evolution of density at and inside influence radius
+		# First do:
+		# compute_infl_radius_mass
+		# compute_rho_sig_infl_radius
+
+		set _i_ = 0,dimen(R_h)-1
+		set _i_ = _i_ if (time_R_h>0 && Rho_at_R_h>0 && Rho_in_R_h>0)
+		set _y_at_ = lg(Rho_at_R_h[_i_])
+		set _y_in_ = lg(Rho_in_R_h[_i_])
+		set _x_ = lg(time_R_h[_i_] / (Nstar*$T_RH/ln(gamma_Coulomb*Nstar))) # Time in units of T_RH
+
+		define trh_yr $($unit_t_yr*Nstar*$T_RH/ln(gamma_Coulomb*Nstar))
+
+		if ($?_SUPER_==0) {
+		   init_graph
+		   expand 1.5
+		   lweight 2
+
+ 		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ 1 -1 
+		      if ($?X_MIN==1) { 
+		         define _X_MIN_ $(lg($X_MIN))
+		      } else {
+		         define _X_MIN_ $fx1
+		      }
+		      if ($?X_MAX==1) { 
+		         define _X_MAX_ $(lg($X_MAX))
+		      } else {
+		         define _X_MAX_ $fx2
+		      }
+		      set _x = (_x_    concat _x_)
+		      set _y = (_y_at_ concat _y_in_)
+		      set _y = _y if (_x>=$_X_MIN_ && _x<=$_X_MAX_)
+		      sort { _y }
+		      set y_min=_y[0]
+		      set y_max=_y[dimen(_y)-1]
+		      limits $_X_MIN_ $_X_MAX_ ( y_min concat y_max ) 
+		   }
+		
+		   define fx1_ $fx1
+		   define fx2_ $fx2
+		   define fy1_ $fy1
+		   define fy2_ $fy2
+		   
+		   if ($?PHYS_UNITS==0) {
+		      location 5000 31000 5000 31000
+		   } else {
+		      location 5000 27500 5000 28000
+		   }
+		   ticksize -1 0 -1 0
+		   box 1 2 4 4
+		   xlabel Time in {\it T}_{rh}{\-1{(0)}}
+		   ylabel Density in {\it N}-body units
+		   if ($?PHYS_UNITS==0) {
+		      box 4 4 0 0
+		   } else {
+		      limits $($fx1+lg($trh_yr)) $($fx2+lg($trh_yr)) $($fy1+lg($unit_m_msun/$unit_r_pc**3)) $($fy2+lg($unit_m_msun/$unit_r_pc**3))  
+		      box 4 4 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Time in years
+		      relocate ( $($gx2+0.17*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5 Density in {\it{M}}_{\odot}\,pc^{-3}
+		      angle 0
+		      limits $fx1_ $fx2_ $fy1_ $fy2_
+		   }       
+		}
+		
+		set _x=$_X_MIN_,$_X_MAX_,($_X_MAX_-$_X_MIN_)/200
+		ltype 0
+		connect _x_ _y_at_
+		ltype 2
+		connect _x_ _y_in_
+		ltype 0
+
+		#if ($?_SUPER_==0) {
+		   # Put legends for the two curves
+		   expand 1.2
+		   limits 0 1 0 1
+		   if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.30  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.08  } else { define _dY_ $dY }
+		   relocate $($_X0_) $($_Y0_)
+		   ltype 0
+		   draw $($_X0_+$_dX_) $($_Y0_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_)
+		   ltype 0
+		   putlabel 6 {\1\rho}({\it{R}}_h)
+		   relocate $($_X0_) $($_Y0_-$_dY_)
+		   ltype 2
+		   draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_-$_dY_)
+		   ltype 0
+		   putlabel 6 {\1\langle\rho\rangle}|_{\1{{<\it{R}}_h}}
+		   relocate $($_X0_) $($_Y0_-2*$_dY_)
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   re_init_graph
+		#}	
+
+
+evol_disp_Rinfl # Evolution of density at and inside influence radius
+		# First do:
+		# compute_infl_radius_mass
+		# compute_rho_sig_infl_radius
+
+		set _i_ = 0,dimen(R_h)-1
+		set _i_ = _i_ if (time_R_h>0 && Rho_at_R_h>0 && Rho_in_R_h>0)
+		set _y_at_ = lg(Sig_at_R_h[_i_])
+		set _y_in_ = lg(Sig_in_R_h[_i_])
+		set _x_ = lg(time_R_h[_i_] / (Nstar*$T_RH/ln(gamma_Coulomb*Nstar))) # Time in units of T_RH
+
+		define trh_yr $($unit_t_yr*Nstar*$T_RH/ln(gamma_Coulomb*Nstar))
+
+		if ($?_SUPER_==0) {
+		   init_graph
+		   expand 1.5
+		   lweight 2
+
+ 		   if ($?FIGER_LIMITES==0) {
+		      limits _x_ 1 -1 
+		      if ($?X_MIN==1) { 
+		         define _X_MIN_ $(lg($X_MIN))
+		      } else {
+		         define _X_MIN_ $fx1
+		      }
+		      if ($?X_MAX==1) { 
+		         define _X_MAX_ $(lg($X_MAX))
+		      } else {
+		         define _X_MAX_ $fx2
+		      }
+		      set _x = (_x_    concat _x_)
+		      set _y = (_y_at_ concat _y_in_)
+		      set _y = _y if (_x>=$_X_MIN_ && _x<=$_X_MAX_)
+		      sort { _y }
+		      set y_min=_y[0]
+		      set y_max=_y[dimen(_y)-1]
+		      limits $_X_MIN_ $_X_MAX_ ( y_min concat y_max ) 
+		   }
+		
+		   define fx1_ $fx1
+		   define fx2_ $fx2
+		   define fy1_ $fy1
+		   define fy2_ $fy2
+		   
+		   if ($?PHYS_UNITS==0) {
+		      location 5000 31000 5000 31000
+		   } else {
+		      location 5000 27500 5000 28000
+		   }
+		   ticksize -1 0 -1 2
+		   box 1 2 4 4
+		   xlabel Time in {\it T}_{rh}{\-1{(0)}}
+		   ylabel Velocity disp. (3D) in {\it N}-body units
+		   if ($?PHYS_UNITS==0) {
+		      box 4 4 0 0
+		   } else {
+		      limits $($fx1+lg($trh_yr)) $($fx2+lg($trh_yr)) $($fy1+lg($unit_u_kms)) $($fy2+lg($unit_u_kms))  
+		      box 4 4 1 2
+		      relocate ( $(0.5*($gx1+$gx2)) $($gy2+0.10*($gy2-$gy1)) )
+		      putlabel 5 Time in years
+		      relocate ( $($gx2+0.14*($gx2-$gx1)) $(0.5*($gy1+$gy2))  )
+		      angle 90
+		      putlabel 5  Velocity disp. (3D) in km\,s^{-1}
+		      angle 0
+		      limits $fx1_ $fx2_ $fy1_ $fy2_
+		   }       
+		}
+		
+		set _x=$_X_MIN_,$_X_MAX_,($_X_MAX_-$_X_MIN_)/200
+		ltype 0
+		connect _x_ _y_at_
+		ltype 2
+		connect _x_ _y_in_
+		ltype 0
+
+		#if ($?_SUPER_==0) {
+		   # Put legends for the two curves
+		   expand 1.2
+		   limits 0 1 0 1
+		   if ($?X0==0) { define _X0_ 0.10  } else { define _X0_ $X0 }
+		   if ($?Y0==0) { define _Y0_ 0.30  } else { define _Y0_ $Y0 }
+		   if ($?dX==0) { define _dX_ 0.10  } else { define _dX_ $dX }
+		   if ($?dY==0) { define _dY_ 0.08  } else { define _dY_ $dY }
+		   relocate $($_X0_) $($_Y0_)
+		   ltype 0
+		   draw $($_X0_+$_dX_) $($_Y0_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_)
+		   ltype 0
+		   putlabel 6 {\1\sigma}({\it{R}}_h)
+		   relocate $($_X0_) $($_Y0_-$_dY_)
+		   ltype 2
+		   draw $($_X0_+$_dX_) $($_Y0_-$_dY_)
+		   relocate $($_X0_+1.4*$_dX_) $($_Y0_-$_dY_)
+		   ltype 0
+		   putlabel 6 {\1\langle\sigma\rangle}|_{\1{{<\it{R}}_h}}
+		   relocate $($_X0_) $($_Y0_-2*$_dY_)
+		   limits $fx1_ $fx2_ $fy1_ $fy2_
+		   re_init_graph
+		#}	
+
+		

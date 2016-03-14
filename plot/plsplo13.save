@@ -1,0 +1,35 @@
+      IF(II.NE.-13)GOTO 9900
+      PRINT*,' PLSPLO13 called '
+      DO 513 IO=IMIN+1,NP-1
+          JC=1
+          TINY=1.D-50
+          DEM = PI43 * X(I00+JC,IO)*(R(IO)**3 - R(IO-1)**3)
+          DER = R(IO) - R(IO-1)
+          DER3 = R(IO)**3 - R(IO-1)**3
+          RAV = (R(IO)+R(IO-1))/2.D0
+          UAV = (X(I10+JC,IO)+X(I10+JC,IO-1))/2.D0
+          PANI=X(I20+JC,IO)-X(I02+JC,IO)/2.D0
+*
+      QU=2.D0*X(I20+JC,IO)*((X(I10+JC,IO)-X(I10+JC,IO-1))/DER -
+     *              UAV/RAV)
+*
+          QFR = 3.D0/DER3*(R(IO)**2*X(I30+JC,IO) -
+     *                  R(IO-1)**2*X(I30+JC,IO-1))
+          QFT1 = -C32/DER3*(R(IO)**2*X(I12+JC,IO) -
+     *                  R(IO-1)**2*X(I12+JC,IO-1)) 
+          QFT2 = 2.D0*(X(I12+JC,IO)+X(I12+JC,IO-1))/RAV
+          QF = QFR + QFT1 + QFT2 
+          XCOUL(JC)=DLOG(.11D4)
+          XMIND(JC)=1.D-4
+          CS(60)=16.D0/9.D0*DSQRT(PI)
+         TRXX=((X(I20+JC,IO)+X(I02+JC,IO))/X(I00+JC,IO)/3.D0)**C32/
+     *    CS(60)/XMIND(JC)/XCOUL(JC)/X(I00+JC,IO)
+          IF(R(IO).GT.1.D-2.AND.MODA.EQ.17)THEN
+          WRITE(95,*)R(IO),QU,QF,PANI/10.D0/TRXX*9.D0
+          END IF
+*
+          IF(K.EQ.3)VEC(K,IO) = PANI/(QU+TINY)
+          IF(K.EQ.2)VEC(K,IO) = 10.D0/9.D0*TRXX
+ 513    CONTINUE
+          VEC(K,IMIN)=VEC(K,IMIN+1)
+          VEC(K,NP)=VEC(K,NP-1)

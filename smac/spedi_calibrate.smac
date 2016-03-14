@@ -1,0 +1,14 @@
+spedi_comp_Holger_ray_lag_Plummer_SingleMass
+		load_loc Compare_Holger.smac
+		define T_RH delete
+		define PHYS_UNITS delete
+		define UNITES_PHYS delete
+		define ABS_LOG delete
+		define BACKGRND_PLOT_SPEDI "ray_lag_Holger_bg PlummerMonoMass64K_LagRad.dat"
+		limits -0.0727314 1.9 -2.42 1.03325
+		define FIGER_LIMITES 1
+		set frac_lag_spedi={ 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9}
+		ray_lag_glob
+		define FIGER_LIMITES delete
+		delete frac_lag_spedi
+		define BACKGRND_PLOT_SPEDI delete

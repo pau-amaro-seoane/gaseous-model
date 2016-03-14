@@ -1,0 +1,816 @@
+
+ ############################################################
+ # BLACK HOLE GROWTH
+ ############################################################
+
+		
+mbh_t_1e5
+		#spedi_tutti
+		set noms={a_1e5 b_1e5 c_1e5}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		read_BH_spedi noms
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_MBH_t_spedi
+
+dmbh_t_1e5
+		#spedi_tutti
+		set noms={a_1e5 b_1e5 c_1e5}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		#read_BH_spedi noms
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.22
+		define X0 0.42
+		define dX 0.11
+		plot_dMBH_t_spedi
+		
+		
+mbh_t_1e6
+		#spedi_tutti
+		set noms={a_1e6 b_1e6 c_1e6}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		read_BH_spedi noms
+		define X_MAX 200
+		define X_MIN 0.3
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_MBH_t_spedi
+		
+
+dmbh_t_1e6
+		#spedi_tutti
+		set noms={a_1e6 b_1e6 c_1e6}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		#read_BH_spedi noms
+		define X_MAX 200
+		define X_MIN 0.3
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_dMBH_t_spedi
+
+mbh_t_1e7
+		#spedi_tutti
+		set noms={a_1e7 b_1e7 c_1e7}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		read_BH_spedi noms
+		define X_MAX 60
+		define X_MIN 0.15
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_MBH_t_spedi
+
+dmbh_t_1e7
+		#spedi_tutti
+		set noms={a_1e7 b_1e7 c_1e7}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		#read_BH_spedi noms
+		define X_MAX 60
+		define X_MIN 0.15
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_dMBH_t_spedi
+		
+all_bh_diags
+		set list_={mbh_t_1e5 dmbh_t_1e5 mbh_t_1e6 dmbh_t_1e6 mbh_t_1e7 dmbh_t_1e7}
+		define PHYS_UNITS 1
+		foreach name_ list_ {
+		   echo Diagram $name_
+		   eps $name_".eps"
+		   $name_
+		}
+		device x11
+
+mbh_t_1e5r2
+		#spedi_tutti
+		set noms={a_1e5_r2 b_1e5_r2 c_1e5_r2}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		read_BH_spedi noms
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_MBH_t_spedi
+
+dmbh_t_1e5r2
+		#spedi_tutti
+		set noms={a_1e5_r2 b_1e5_r2 c_1e5_r2}
+		set labels_spedi = < "{\s{M}}_{bh}{\-1{(0)}}=50\,{\it{M}}_{\odot}\ {\it{x}}_{b}=1" "{\it{x}}_{b}=2" "{\s{M}}_{bh}{\-1{(0)}}=500\,{\it{M}}_\odot" >
+		#read_BH_spedi noms
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.22
+		define X0 0.42
+		define dX 0.11
+		plot_dMBH_t_spedi
+		
+	
+mbh_t_1e5variousR
+		#spedi_tutti
+		set noms={a_1e5_r0p5 a_1e5 a_1e5_r2}
+		set labels_spedi = < "{\it{R}}_P{\-1{(0)}}=0.5\,pc" "{\it{R}}_P{\-1{(0)}}=1\,pc" "{\it{R}}_P{\-1{(0)}}=2\,pc" >
+		read_BH_spedi noms
+		define PHYS_UNITS delete
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_MBH_t_spedi
+		define PHYS_UNITS 1	
+
+dmbh_t_1e5variousR
+		#spedi_tutti
+		set noms={a_1e5_r0p5 a_1e5 a_1e5_r2}
+		set labels_spedi = < "{\it{R}}_P{\-1{(0)}}=0.5\,pc" "{\it{R}}_P{\-1{(0)}}=1\,pc" "{\it{R}}_P{\-1{(0)}}=2\,pc" >
+		read_BH_spedi noms
+		define PHYS_UNITS delete
+		define X_MAX 400
+		define X_MIN 0.9
+		define dY 0.065
+		define Y0 0.93
+		define X0 0.04
+		define dX 0.11
+		plot_dMBH_t_spedi
+		define PHYS_UNITS 1	
+
+ ############################################################
+ # CARACTERISTIC RADII
+ ############################################################
+		
+Rcarac_a1e5
+		init_a1e5_
+		plot_Rcarac_a1e5_
+		
+init_a1e5_
+		spedi_clean
+		!ln -sf spedi_runs/BH/1comp/paper_1/ani/a_1e5/star1.list(|.gz) .#
+		compute_infl_radius_mass
+		get_CritRadii $(Nstar) $(gamma_Coulomb)
+
+plot_Rcarac_a1e5_
+		define X_MAX 400
+		define X_MIN 0.9
+		plot_Rh_Rcrit_vs_Time
+		define X_MAX delete
+		define X_MIN delete
+		
+Rcarac_c1e5
+		init_c1e5_
+		plot_Rcarac_c1e5_
+
+init_c1e5_
+		spedi_clean
+		!ln -sf spedi_runs/BH/1comp/paper_1/ani/c_1e5/star1.list(|.gz) .#
+		compute_infl_radius_mass
+		get_CritRadii $(Nstar) $(gamma_Coulomb)
+
+plot_Rcarac_c1e5_
+		define X_MAX 400
+		define X_MIN 0.9
+		plot_Rh_Rcrit_vs_Time
+		define X_MAX delete
+		define X_MIN delete
+		
+init_a1e6_
+		spedi_clean
+		!ln -sf spedi_runs/BH/1comp/paper_1/ani/a_1e6/star1.list(|.gz) .#
+		compute_infl_radius_mass
+		get_CritRadii $(Nstar) $(gamma_Coulomb)	
+init_a1e7_
+		spedi_clean
+		!ln -sf spedi_runs/BH/1comp/paper_1/ani/a_1e7/star1.list(|.gz) .#
+		compute_infl_radius_mass
+		get_CritRadii $(Nstar) $(gamma_Coulomb)
+
+ ############################################################
+ # DENSITY AND DISPERSION EVOLUTION (at R_h)
+ ############################################################
+		
+DensRh_a1e5
+		init_DensRh_a1e5_
+		plot_DensRh_a1e5_
+		
+init_DensRh_a1e5_
+		spedi_clean
+		!ln -sf spedi_runs/BH/1comp/paper_1/ani/a_1e5/star1.list(|.gz) .#
+		compute_infl_radius_mass
+		compute_rho_sig_infl_radius
+
+plot_DensRh_a1e5_
+		define X_MAX 400
+		define X_MIN 0.9
+		define X0 delete
+		define Y0 delete
+		define dX delete
+		define dY delete
+		define PHYS_UNITS 1
+		evol_dens_Rinfl
+		define X_MAX delete
+		define X_MIN delete
+		
+DispRh_a1e5
+		init_DensRh_a1e5_
+		plot_DispRh_a1e5_
+
+plot_DispRh_a1e5_
+		define X_MAX 400
+		define X_MIN 0.9
+		define X0 delete
+		define Y0 delete
+		define dX delete
+		define dY delete
+		define PHYS_UNITS 1
+		evol_disp_Rinfl
+		define X_MAX delete
+		define X_MIN delete
+
+		
+ ############################################################
+ # LAGRANGE RADII
+ ############################################################
+		
+RLagr_a1e5
+		init_a1e5_
+		plot_RLagr_a1e5_
+
+plot_RLagr_a1e5_
+		define ABS_LOG 1
+		define PHYS_UNITS 1
+		define X_MAX 400
+		#define X_MAX 4000
+		define X_MIN 0.9
+		set frac_lag_spedi={ 1e-5 3e-5 1e-4 3e-4 1e-3 3e-3 0.01 0.03 0.1 0.25 0.5 0.75 0.9}
+		limits -0.152784 2.95 -3.3 1.83523
+		#limits -0.152784 4 -3.3 3
+		define FIGER_LIMITES 1
+		define IMPOSED_LTYPE 1
+		ray_lag_glob
+		define IMPOSED_LTYPE delete
+		define _SUPER_ 1
+		ctype red
+		define X0 0.10
+		define Y0 0.9
+		define dY 0.05
+		define dX 0.10
+		plot_Rh_Rcrit_vs_Time
+		ctype black
+		define _SUPER_ delete
+		define SHOW_R1 delete
+		define SHOW_RCRIT 1
+		define SHOW_RH 1
+ 		delete frac_lag_spedi
+		ajoute_seg_droite_ 1.98896 0.39223 $(2/3) 2 "slope 2/3"
+		define FIGER_LIMITES delete
+		define X_MAX delete
+		define X_MIN delete
+		define ABS_LOG delete
+		define PHYS_UNITS delete
+		define X0 delete
+		define Y0 delete
+		define dY delete
+		define dX delete
+				
+RLagr_a1e6
+		init_a1e6_
+		plot_RLagr_a1e6_
+
+plot_RLagr_a1e6_
+		define ABS_LOG 1
+		define PHYS_UNITS 1
+		define X_MAX 200
+		define X_MIN 0.3
+		set frac_lag_spedi={ 1e-6 1e-5 3e-5 1e-4 3e-4 1e-3 3e-3 0.01 0.03 0.1 0.25 0.5 0.75 0.9}
+		limits -0.5228 2.68 -3.32385 1.42634
+		#limits -0.152784 4 -3.3 3
+		define FIGER_LIMITES 1
+		define IMPOSED_LTYPE 1
+		ray_lag_glob
+		define IMPOSED_LTYPE delete
+		define _SUPER_ 1
+		ctype red
+		define X0 0.10
+		define Y0 0.93
+		define dY 0.05
+		define dX 0.10
+		plot_Rh_Rcrit_vs_Time
+		ctype black
+		define _SUPER_ delete
+		define SHOW_R1 delete
+		define SHOW_RCRIT 1
+		define SHOW_RH 1
+ 		delete frac_lag_spedi
+		ajoute_seg_droite_ 1.98896 0.151076 $(2/3) 2 "slope 2/3"
+		define FIGER_LIMITES delete
+		define X_MAX delete
+		define X_MIN delete
+		define ABS_LOG delete
+		define PHYS_UNITS delete
+		define X0 delete
+		define Y0 delete
+		define dY delete
+		define dX delete
+		
+ ############################################################
+ # PROFILES
+ ############################################################
+		
+dens_prof_4Gyr_a1e5
+		init_a1e5_
+		init_RhoProfiles
+		plot_dens_prof_4Gyr_a1e5_
+
+plot_dens_prof_4Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		define PLOT_SLOPE -1.75
+		make_RhoProfile 175
+		define PLOT_SLOPE delete
+
+dens_prof_10Gyr_a1e5
+		init_a1e5_
+		init_RhoProfiles
+		plot_dens_prof_10Gyr_a1e5_
+
+plot_dens_prof_10Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define PLOT_SLOPE -1.75
+		make_RhoProfile 237
+		define PLOT_SLOPE delete
+		
+
+dens_prof_4Gyr_c1e5
+		init_c1e5_
+		init_RhoProfiles
+		plot_dens_prof_4Gyr_c1e5_
+
+plot_dens_prof_4Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		define PLOT_SLOPE -1.75
+		make_RhoProfile 117
+		define PLOT_SLOPE delete
+
+dens_prof_10Gyr_c1e5
+		init_c1e5_
+		init_RhoProfiles
+		plot_dens_prof_10Gyr_c1e5_
+
+plot_dens_prof_10Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define PLOT_SLOPE -1.75
+		make_RhoProfile 175
+		define PLOT_SLOPE delete
+
+disp_prof_4Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_disp_prof_4Gyr_a1e5_
+
+plot_disp_prof_4Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		make_SigmaProfile 175
+		ajoute_seg_droite -2.2179 0.804722 -0.5 1.2
+
+disp_prof_10Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_disp_prof_10Gyr_a1e5_
+
+plot_disp_prof_10Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		make_SigmaProfile 237
+		ajoute_seg_droite -1.93796 0.760062 -0.5 1.2
+
+ani_prof_4Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_ani_prof_4Gyr_a1e5_
+
+plot_ani_prof_4Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		make_AnisProfile 175
+
+
+ani_prof_10Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_ani_prof_10Gyr_a1e5_
+
+plot_ani_prof_10Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		make_AnisProfile 237
+
+LC_prof_4Gyr_a1e5
+		init_a1e5_
+		plot_LC_prof_10Gyr_a1e5_
+
+plot_LC_prof_4Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		define Y0 0.25
+		define X0 0.4
+		define dY 0.12
+		Plot_LCProfiles 34
+
+LC_prof_10Gyr_a1e5
+		init_a1e5_
+		plot_LC_prof_10Gyr_a1e5_
+
+plot_LC_prof_10Gyr_a1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.25
+		define X0 0.4
+		define dY 0.12
+		Plot_LCProfiles 47
+
+
+disp_prof_4Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_disp_prof_4Gyr_c1e5_
+
+plot_disp_prof_4Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		make_SigmaProfile 175
+		ajoute_seg_droite -2.05713 0.845823 -0.5 1.2
+
+disp_prof_10Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_disp_prof_10Gyr_c1e5_
+
+plot_disp_prof_10Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		make_SigmaProfile 237
+		ajoute_seg_droite  -1.83456 0.776096 -0.5 1.2
+
+ani_prof_4Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_ani_prof_4Gyr_c1e5_
+
+plot_ani_prof_4Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		make_AnisProfile 175
+
+
+ani_prof_10Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_ani_prof_10Gyr_c1e5_
+
+plot_ani_prof_10Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		make_AnisProfile 237
+
+LC_prof_4Gyr_c1e5
+		init_c1e5_
+		plot_LC_prof_10Gyr_c1e5_
+
+plot_LC_prof_4Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		define Y0 0.25
+		define X0 0.4
+		define dY 0.12
+		Plot_LCProfiles 23
+
+LC_prof_10Gyr_c1e5
+		init_c1e5_
+		plot_LC_prof_10Gyr_c1e5_
+
+plot_LC_prof_10Gyr_c1e5_
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.25
+		define X0 0.4
+		define dY 0.12
+		Plot_LCProfiles 34
+
+
+
+proj_disp_prof_4Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_4Gyr_a1e5_
+
+plot_proj_disp_prof_4Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 175
+
+proj_disp_prof_10Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_10Gyr_a1e5_
+
+plot_proj_disp_prof_10Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 237
+
+proj_dens_prof_4Gyr_a1e5
+		init_a1e5_
+		init_RhoProfiles
+		plot_proj_dens_prof_4Gyr_a1e5_
+
+plot_proj_dens_prof_4Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		#limits -2.52288 1.60206 -5.13356 0.105025
+		#define FIGER_LIMITES 1
+		make_ProjRhoProfile 175
+		ajoute_seg_droite -1.23463 -0.26976 -0.75 1.2
+
+proj_dens_prof_10Gyr_a1e5
+		init_a1e5_
+		init_RhoProfiles
+		plot_proj_dens_prof_10Gyr_a1e5_
+
+plot_proj_dens_prof_10Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjRhoProfile 237
+		ajoute_seg_droite -0.956121 -0.75158 -0.75 1.2
+
+
+proj_disp_prof_4Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_4Gyr_a1e5_
+
+plot_proj_disp_prof_4Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 3e-3
+		define X_MAX 40
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 175
+
+proj_disp_prof_10Gyr_a1e5
+		init_a1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_10Gyr_a1e5_
+
+plot_proj_disp_prof_10Gyr_a1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 237
+
+proj_dens_prof_4Gyr_c1e5
+		init_c1e5_
+		init_RhoProfiles
+		plot_proj_dens_prof_4Gyr_c1e5_
+
+plot_proj_dens_prof_4Gyr_c1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		#limits -2.52288 1.60206 -5.13356 0.105025
+		#define FIGER_LIMITES 1
+		make_ProjRhoProfile 117
+		ajoute_seg_droite -1.32138 -0.149353 -0.75 1.2
+
+proj_dens_prof_10Gyr_c1e5
+		init_c1e5_
+		init_RhoProfiles
+		plot_proj_dens_prof_10Gyr_c1e5_
+
+plot_proj_dens_prof_10Gyr_c1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjRhoProfile 175
+		ajoute_seg_droite -1.07378 -0.705524 -0.75 1.2
+
+proj_disp_prof_4Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_4Gyr_c1e5_
+
+plot_proj_disp_prof_4Gyr_c1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 4e-3
+		define X_MAX 40
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 117
+
+proj_disp_prof_10Gyr_c1e5
+		init_c1e5_
+		init_SigmaProfiles
+		plot_proj_disp_prof_10Gyr_c1e5_
+
+plot_proj_disp_prof_10Gyr_c1e5_
+		define ORD_LOG 1
+		define SHOW_RCRIT 1
+		define SHOW_R1 1
+		define SHOW_RH 1
+		undef FIGER_LIMITES
+		define X_MIN 7e-3
+		define X_MAX 60
+		define Y0 0.9
+		define X0 0.4
+		define dY 0.06
+		make_ProjSigmaProfile 175
+
+
+all_profiles
+		set models_=< "a1e5" "c1e5" >
+		set times_=< "4Gyr" "10Gyr" >
+		set plots_=< "dens" "disp" "ani" "proj_dens" "proj_disp" "LC" >
+
+		define PHYS_UNITS 1
+		foreach model_ models_ {
+		   init_""$model_""_
+		   init_RhoProfiles
+		   init_SigmaProfiles
+		   foreach time_ times_ {
+		      foreach plot_ plots_ {
+		         eps $plot_"_"$model_"_"$time_".eps"
+		         plot_$plot_""_prof_""$time_""_""$model_""_
+		         device x11
+		      }
+		   }
+		}
+		   
+
+ ############################################################
+ # VARIOUS ROUTINES
+ ############################################################
+
+ajoute_seg_droite_ 5 # place un segment de droite passant par ($1,$2), de pente $4 et de longeur (en x) $4	
+		set _X0_ local
+		set _Y0_ local
+		set _X_ local
+		set _Y_ local
+		set _pente_ local
+		set _X0_ = $1
+		set _Y0_ = $2
+		set _pente_= $3
+		define _MY_LABEL_ <$5>
+		set _X_=0,$4,$4
+		set _Y_=_pente_*_X_
+		set _X_=_X_+_X0_
+		set _Y_=_Y_+_Y0_
+		ctype black
+		define my_angle $(57.3*atan2($aspect*($fx2-$fx1)*_pente_,($fy2-$fy1)))
+		if ($?LTYPE_DROITE==1) { ltype $LTYPE_DROITE } else { ltype 4 }
+		connect _X_ _Y_
+		expand 0.85
+		angle $my_angle
+ 		relocate $(_X0_) $(_Y0_)
+		putlabel 4 "\raise 500 {$!_MY_LABEL_} "
+		angle 0
+		ltype 0

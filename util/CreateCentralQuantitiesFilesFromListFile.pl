@@ -1,0 +1,215 @@
+#!/usr/bin/perl -w
+# Extract velocity dispersion profiles from star1.list file
+
+###DOESN'T WORK !!!  BECAUSE STRUCTURE OF list FILE DEPENDS ON NUMBER OF COMPONENTS!
+
+#use strict;
+
+use Getopt::Long;
+
+my $time;
+my $pi=3.141592653589793116;
+
+$i_step = 0;
+$base_name = "sigma_profile";
+
+while (<>) {
+  chomp;
+  if (/ +GAMMA= *([^ ]+) *XBIN2B=/) {
+    $gamma=$1;
+  }
+  elsif (/^ *XNTOTA= *([^ ]+) *XIMF=/) {
+    $Nstar=$1;
+  }
+  elsif (/^ *T= *(.+) DT=/) {
+    $time=$1;
+    #print "T = ",$time,"\n";
+  }
+  elsif (/^ *RADIUS /) { # header line announcing data block
+
+    # find column numbers for various components
+    # column zero is the number of the shell, column 1 is the radius
+    s/([A-Z]) +([0-9])/$1_$2/g;
+    @headers = split;
+
+    $column_totmass   = -1;
+    @columns_num_rho  = (); # densites
+    @columns_num_sigr = (); # radial velocity dispersions
+    @columns_num_sigt = (); # tangential velocity dispersions
+
+    for  ($i_col=0; $i_col<=$#headers; ++$i_col) {
+      if ( $headers[$i_col] =~ /^TOTMASS$/ && $headers[$i_col+1] =~ /^MASS/ ) {
+	$column_totmass = $i_col+1;
+	print STDOUT $headers[$i_col]," found in column ",$i_col+1,"\n";
+      }
+      if ( $headers[$i_col] =~ /^RHO_([1-9][0-9]*)$/ ) {
+	$columns_num_rho[$1-1] = $i_col+1;
+	#print STDOUT $headers[$i_col]," found in column ",$i_col+1,"\n";
+      }
+      elsif ( $headers[$i_col] =~ /^SIGR_([1-9][0-9]*)$/ ) {
+	$columns_num_sigr[$1-1] = $i_col+1;
+	#print STDOUT $headers[$i_col]," found in column ",$i_col+1,"\n";
+      }
+      elsif ( $headers[$i_col] =~ /^SIGT_([1-9][0-9]*)$/ ) {
+	$columns_num_sigt[$1-1] = $i_col+1;
+	#print STDOUT $headers[$i_col]," found in column ",$i_col+1,"\n";
+      }
+    }
+
+    # read block of data
+    # ==================
+
+    @rho_data=()  if (@columns_num_rho );
+    @sigt_data=() if (@columns_num_sigt);
+    @sigr_data=() if (@columns_num_sigr);
+
+    while (<>,  /^ *$/) {} # first, skip possible blank lines
+    $_ = <>;
+    s/\*/ /g;
+    chomp;
+    @data_line = split;
+    @rho_data  = @data_line[@columns_num_rho ] if (@columns_num_rho ); # central densites
+    @sigt_data = @data_line[@columns_num_sigt] if (@columns_num_sigt); # central radial velocity dispersions
+    @sigr_data = @data_line[@columns_num_sigr] if (@columns_num_sigr); # central tangential velocity dispersions
+
+    if ($column_totmass>=0) {
+      $i_shell = 0;
+      @radius=();
+      @totmass=();
+      $radius[$i_shell] = $data_line[1];
+      $totmass[$i_shell] = $data_line[$column_totmass];
+      $i_shell++;
+    DATA_READ: while (<>) {
+	s/\*/ /g;
+	chomp;
+	@data_line = split;
+	last DATA_READ if ($#data_line < $#headers);
+	$radius[$i_shell] = $data_line[1];
+	$totmass[$i_shell] = $data_line[$column_totmass];
+	$i_shell++;
+      }
+      $i_shell--;
+      $n_shells=$i_shell;
+    }
+    
+    # Do we have complete density and velocity data?
+    if (@rho_data && @sigt_data && @sigr_data && @totmass) {
+
+      # compute central potential (integral of dM/R)
+      $PotCtr=0.0;
+      for ($i_shell=1;$i_shell<$n_shells-1;$i_shell++){
+	$PotCtr = $PotCtr + ($totmass[$i_shell+1]-$totmass[$i_shell])*0.5*(1.0/$radius[$i_shell+1]+1.0/$radius[$i_shell])
+      }
+
+      $nb_comp = $#rho_data+1;
+      ($nb_comp>1) and print STDOUT "Found complete information for ",$nb_comp," components\n"
+	or  print STDOUT "Found complete information for 1 component\n";
+      # Compute average velocity dispersion
+      $sigv2_avrg = 0;
+      $tot_dens   = 0;
+      for ($i_comp=0; $i_comp<=$nb_comp-1; ++$i_comp) {
+	$tot_dens   = $tot_dens   + $rho_data[$i_comp];
+	$sigv2_avrg = $sigv2_avrg + $rho_data[$i_comp]*($sigr_data[$i_comp]**2+2*$sigt_data[$i_comp]**2);
+      }
+      $sigv2_avrg = $sigv2_avrg/$tot_dens;
+      $Rcore_avrg = sqrt(3*$sigv2_avrg/(4*$pi*$tot_dens));
+      @Rcore = 0*@rho_data;
+      @Sig1D = 0*@rho_data;
+      for ($i_comp=0; $i_comp<=$nb_comp-1; ++$i_comp) {
+	$Rcore[$i_comp] = sqrt(3*($sigr_data[$i_comp]**2+2*$sigt_data[$i_comp]**2)/(4*$pi*$tot_dens));
+	$Sig1D[$i_comp] = sqrt(($sigr_data[$i_comp]**2+2*$sigt_data[$i_comp]**2)/3);
+      }
+      
+      # Write data to files
+      # ===========================
+
+      $file_name = 'CentralDispersions.asc';
+      if ($header_written) { # Append to file
+	print STDOUT "> Adding data to $file_name (T=$time)...\n";
+	open(OUTFILE,">>$file_name");
+      } else { # Create file and write header
+	print STDOUT "> Creating $file_name...\n";
+	open(OUTFILE,">$file_name");
+	print OUTFILE "# Central velocity dispersions (1D) from SPEDI simulation\n";
+	print OUTFILE "# N-body units are used\n";
+	print OUTFILE "# Nstar = ",$Nstar,"\n";
+	print OUTFILE "# gamma_Coulomb = ",$gamma,"\n";
+	print OUTFILE "# Number of mass components = ",$nb_comp,"\n";
+	print OUTFILE "# 1: Time 2: PotCtr 3: Sig1DCtr_avrg ";
+	if ($nb_comp>1) {
+	  for  ($i_comp=1; $i_comp<=$nb_comp; ++$i_comp) {
+	    print OUTFILE $i_comp+3,": Sig1DCtr$i_comp ";
+	  }
+	}
+	print OUTFILE "\n";
+      }
+      print OUTFILE sprintf("%16.9e",$time)," ",sprintf(" %12.5e"x2,$PotCtr,sqrt($sigv2_avrg/3));
+      if ($nb_comp>1) {
+	print OUTFILE sprintf(" %12.5e"x$nb_comp,@Sig1D);
+      }
+      print OUTFILE "\n";
+      close OUTFILE;
+
+      $file_name = 'CentralDensities.asc';
+      if ($header_written) { # Append to file
+	print STDOUT "> Adding data to $file_name (T=$time)...\n";
+	open(OUTFILE,">>$file_name");
+      } else { # Create file and write header
+	print STDOUT "> Creating $file_name...\n";
+	open(OUTFILE,">$file_name");
+	print OUTFILE "# Central densities from SPEDI simulation\n";
+	print OUTFILE "# N-body units are used\n";
+	print OUTFILE "# Nstar = ",$Nstar,"\n";
+	print OUTFILE "# gamma_Coulomb = ",$gamma,"\n";
+	print OUTFILE "# Number of mass components = ",$nb_comp,"\n";
+	print OUTFILE "# 1: Time 2: PotCtr 3: RhoCtr_tot ";
+	if ($nb_comp>1) {
+	  for  ($i_comp=1; $i_comp<=$nb_comp; ++$i_comp) {
+	    print OUTFILE $i_comp+3,": RhoCtr$i_comp ";
+	  }
+	}
+	print OUTFILE "\n";
+      }
+      print OUTFILE sprintf("%16.9e",$time)," ",sprintf(" %12.5e"x2,$PotCtr,$tot_dens);
+      if ($nb_comp>1) {
+	print OUTFILE sprintf(" %12.5e"x$nb_comp,@rho_data);
+      }
+      print OUTFILE "\n";
+      close OUTFILE;
+
+      $file_name = 'CoreRadii.asc';
+      if ($header_written) { # Append to file
+	print STDOUT "> Adding data to $file_name (T=$time)...\n";
+	open(OUTFILE,">>$file_name");
+      } else { # Create file and write header
+	print STDOUT "> Creating $file_name...\n";
+	open(OUTFILE,">$file_name");
+	print OUTFILE "# Core radii from SPEDI simulation\n";
+	print OUTFILE "# N-body units are used\n";
+	print OUTFILE "# Nstar = ",$Nstar,"\n";
+	print OUTFILE "# gamma_Coulomb = ",$gamma,"\n";
+	print OUTFILE "# Number of mass components = ",$nb_comp,"\n";
+	print OUTFILE "# 1: Time 2: PotCtr 3: Rcore_avrg ";
+	if ($nb_comp>1) {
+	  for  ($i_comp=1; $i_comp<=$nb_comp; ++$i_comp) {
+	    print OUTFILE $i_comp+3,": Rcore$i_comp ";
+	  }
+	}
+	print OUTFILE "\n";
+	$header_written=1;
+      }
+      print OUTFILE sprintf("%16.9e",$time)," ",sprintf(" %12.5e"x2,$PotCtr,$Rcore_avrg);
+      if ($nb_comp>1) {
+	print OUTFILE sprintf(" %12.5e"x$nb_comp,@Rcore);
+      }
+      print OUTFILE "\n";
+      close OUTFILE;
+
+      @rho_data=();
+      @sigt_data=();
+      @sigr_data=();
+      @totmass=();
+    }
+  }
+}
+

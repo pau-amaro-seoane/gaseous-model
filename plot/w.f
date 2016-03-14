@@ -1,0 +1,22 @@
+       IMPLICIT REAL*8(A-H,O-Z),INTEGER(I-K,M-N),LOGICAL(L)
+C
+       IREC=0
+ 1900  IREC=IREC+1
+C
+       READ(50,*,ERR=999,END=888)TIME,EPOT,EKIN,ETHR,EBIN
+C
+       ETOT=EKIN+ETHR-EPOT
+       IF(IREC.EQ.1)ETOT0=ETOT
+       EERR=ETOT0-ETOT+EBIN
+       WRITE(51,100)TIME,-EPOT,EKIN,ETHR,ETOT,EERR,EBIN
+C
+       IF(MOD(IREC,100).EQ.0)PRINT*,' TIME=',TIME,' IREC=',IREC
+ 100   FORMAT(1X,1P,7(1X,D12.5))
+C
+       GOTO 1900
+C
+ 888   PRINT*,IREC-1,' Records read and written '
+       STOP
+ 999   PRINT*,' Error in read from unit 50'
+       STOP
+       END

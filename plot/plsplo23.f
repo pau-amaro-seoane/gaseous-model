@@ -1,0 +1,3 @@
+      IF(II.NE.-23)GOTO 9800
+      DO 523 IO=2,NTP-1
+ 523    CONTINUE
