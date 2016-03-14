@@ -45,8 +45,5 @@ characters for each field. For instance "XIMF=-2.35000+000" is correct but not
 
 (4) In kug1_examples/ you'll find "good" kug1.dat examples
 
-(5) plot/ is an obsolete directory used by previous users. I (Pau) have never employed it but
-    you can find it useful
-
-(6) utils/ and smac/ are tools for plotting etc
+(5) utils/ and smac/ are tools for plotting etc
    (smac contains supermongo macros and in utils you'll find scripts)
