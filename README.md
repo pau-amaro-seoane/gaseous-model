@@ -40,8 +40,8 @@ characters for each field. For instance "XIMF=-2.35000+000" is correct but not
 
 (2) In Simula_BH_test/ you'll find an example to start a simulation of a star-accreting BH
 
-(3) In fitxers_descr_binaris/ you'll find scripts to process/ analyse data relative to
-    ndcode/
+(3) In plot/ you'll find scripts to process/ analyse data relative to
+    ndcode/ (check plot/README)
 
 (4) In kug1_examples/ you'll find "good" kug1.dat examples
 
