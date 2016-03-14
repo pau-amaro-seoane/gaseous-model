@@ -1,21 +1,27 @@
-      =============================================================================
-       Lame notes to use "spedi" (gas dynamical models of spherical star clusters)
-      =============================================================================
+This code allows you to model a galactic nucleus or a globular cluster with a scheme that
+approaches the system as a self-gravitating, conducting gas sphere.
 
-    +-------------------------------------------------------------------------+
-    | @run1 is a tcsh-script required to start the run                        |
-    |                                                                         |
-    | @run1r is the same but it can be used to restart ("r") a simulation     |
-    | without deleting previous data. In practise I was using this script all |
-    | the time                                                                |
-    |                                                                         |
-    | kug1.dat contains what you want to be the initial system                |
-    |                                                                         |
-    | To start a simulation: nohup @run1 spedi &                              |
-    |                                                                         |
-    | where "spedi" is the executable binary you get out when you compile the |
-    | main code with "make"                                                   |
-    +-------------------------------------------------------------------------+
+For more information, please visit
+
+http://astro-gr.org/modelling-galactic-nuclei-self-gravitating-conducting-gas-spheres/
+
+Pau Amaro Seoane, Berlin 14/03/2016
+
+Some notes
+============
+
+ @run1 is a tcsh-script required to start the run
+
+ @run1r is the same but it can be used to restart ("r") a simulation
+ without deleting previous data. In practise I was using this script all
+ the time
+
+ kug1.dat contains what you want to be the initial system
+
+ To start a simulation: nohup @run1 spedi &
+
+ where "spedi" is the executable binary you get out when you compile the
+ main code with "make"
 
  New style: Use launch_spedi.sh in utils instead of @run1
  ========
