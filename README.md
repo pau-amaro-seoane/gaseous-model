@@ -44,7 +44,7 @@ Some notes
  where "spedi" is the executable binary you get out when you compile the
  main code with "make"
 
- New style: Use launch_spedi.sh in utils instead of @run1
+ New style: Use run.sh in utils instead of @run1
  ========
 
 (0) General information: Refer to star.f and params.f
