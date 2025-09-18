@@ -13,8 +13,7 @@ Pau Amaro Seoane, Berlin 14/03/2016
 License
 =======
 
-* Copyright (c) 2016, Pau Amaro Seoane (pau.amaro.seoane@gmail.com)
-*                     and Rainer Spurzem (spurzem@nao.cas.cn)
+* Copyright (c) 2016, Pau Amaro Seoane (amaro@upv.es) and Rainer Spurzem (spurzem@nao.cas.cn)
 *
 * Permission to use, copy, modify, and distribute this software for any
 * purpose with or without fee is hereby granted, provided that the above
